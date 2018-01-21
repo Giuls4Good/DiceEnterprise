@@ -1,4 +1,5 @@
 Ladder$debug("is.ladder")
+Ladder$debug("define.neighbourhoods")
 m <- 3
 k <- 2
 M <- matrix(c(0,0,2,1,1,0), ncol = 3, byrow = TRUE)
@@ -12,49 +13,84 @@ for(i in 1:nrow(p)) {
 }
 
 #Valid fine and connected ladder
-m <- 3
-k <- 6
-M <- matrix(c(3,0,0,
+M_ciao <- matrix(c(3,0,0,
               2,0,1,
               1,2,0,
               1,1,1,
               1,0,2,
               0,2,1), byrow = TRUE, ncol = 3)
-R <- c(sqrt(2),1,1/4,2,1/2,3/4)
-l1 <- Ladder$new(m = m, k = k, M = M, R = R)
+R_ciao <- c(sqrt(2),1,1/4,2,1/2,3/4)
+l1 <- Ladder$new(M = M_ciao, R = R_ciao)
+print(l1)
 
 #Valid connected ladder (not fine)
-m <- 3
-k <- 7
-M <- matrix(c(3,0,0,
+M_ciao <- matrix(c(3,0,0,
               2,0,1,
               1,2,0,
               1,1,1,
               1,0,2,
               0,2,1,
               1,1,1), byrow = TRUE, ncol = 3)
-R <- c(sqrt(2),1,1/4,2,1/2,3/4,0.7)
-l2 <- Ladder$new(m = m, k = k, M = M, R = R)
+R_ciao <- c(sqrt(2),1,1/4,2,1/2,3/4,0.7)
+l2 <- Ladder$new(M = M_ciao, R = R_ciao)
+print(l2)
 
 #Valid fine ladder (not connected)
-m <- 3
-k <- 5
-M <- matrix(c(3,0,0,
+M_ciao <- matrix(c(3,0,0,
               1,2,0,
               1,1,1,
               1,0,2,
               0,2,1), byrow = TRUE, ncol = 3)
-R <- c(sqrt(2),1,1/4,2,1/2)
-l3 <- Ladder$new(m = m, k = k, M = M, R = R)
+R_ciao <- c(sqrt(2),1,1/4,2,1/2)
+Ladder$debug("impose.connected")
+l3 <- Ladder$new(M = M_ciao, R = R_ciao)
+l3$impose.connected()
+print(l3)
 
 #Valid ladder (not fine not connected)
-m <- 3
-k <- 6
-M <- matrix(c(3,0,0,
+M_ciao <- matrix(c(3,0,0,
               1,1,1,
               1,2,0,
               1,1,1,
               1,0,2,
               0,2,1), byrow = TRUE, ncol = 3)
-R <- c(sqrt(2),1,1/4,2,1/2,0.44)
-l4 <- Ladder$new(m = m, k = k, M = M, R = R)
+R_ciao <- c(sqrt(2),1,1/4,2,1/2,0.44)
+l4 <- Ladder$new(M = M_ciao, R = R_ciao)
+print(l4)
+
+###
+# BF
+###
+
+rm(list=ls())
+pi_prime <- Ladder$new(M=matrix(c(0,3,2,1,3,0), ncol = 2, byrow=TRUE),
+                       R=c(3,2,sqrt(2)))
+print(pi_prime) #not connected
+#1) Impose connected condition
+aux <- pi_prime$impose.connected()
+pi_tilde <- aux[[1]]
+A_prime_tilde <- aux[[2]]
+print(pi_tilde)
+#2) Impose fineness condition
+aux <- pi_tilde$impose.fineness()
+pi <- aux[[1]]
+A_pi_tilde <- aux[[2]]
+print(pi)
+#3) Sample from pi
+true_p <- c(0.6,0.4)
+sample_size <- 10000
+sample_pi <- pi$sample(n = sample_size, roll.fun = function(n) {sample(1:length(true_p), size = n, replace = TRUE, prob = c(0.6,0.4))})
+# check correctness
+pi$evalute(p = true_p)
+table(sample_pi)/sample_size
+#4) Transform sample to pi_tilde
+sample_pi_tilde <- disaggregationSample(sample_pi, origin = "original",
+                                        disaggDist = pi_tilde, A = A_pi_tilde)
+# check correctness
+pi_tilde$evalute(p = true_p)
+table(sample_pi_tilde)/sample_size
+#5) Transform sample to pi_prime
+sample_pi_prime <- disaggregationSample(sample_pi_tilde, origin = "disaggregation",
+                                        disaggDist = pi_tilde, A = A_prime_tilde)
+pi_prime$evalute(p = true_p)
+table(sample_pi_prime)/sample_size
