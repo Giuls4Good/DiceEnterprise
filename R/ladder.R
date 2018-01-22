@@ -53,18 +53,21 @@ Ladder <- R6::R6Class("Ladder",
       }
       return(currentState)
     },
-    sample = function(n,roll.fun,...) {
+    sample = function(n,roll.fun = NULL, true_p = NULL,...) {
       #Get a sample from the ladder using CFTP
+      if(is.null(roll.fun) && is.null(true_p)) {stop("Either declare roll.fun or the trye probabilities.")}
+      if(is.null(roll.fun)) {roll.fun <- function(n) {sample(1:private$m, size = n, replace = TRUE, prob = true_p)}}
       res <- rep(NA, n)
       for(i in 1:n) {
         res[i] <- CFTP(k = private$k, roll.fun = roll.fun, update.fun = self$update.fun,
-                    monotonic = FALSE)
+                    monotonic = FALSE,...)
       }
       return(res)
     },
     evalute = function(p) {
       #Return the values of the ladder for a fixed
       #vector of probabilities of rolling each face
+      stopifnot(is.numeric(p), length(p) == private$m, isTRUE(all.equal(1,sum(p))))
       aux <- rep(NA, private$k)
       for(i in 1:private$k) {
         aux[i] <- prod(p^private$M[i,])*private$R[i]

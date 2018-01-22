@@ -94,3 +94,14 @@ sample_pi_prime <- disaggregationSample(sample_pi_tilde, origin = "disaggregatio
                                         disaggDist = pi_tilde, A = A_prime_tilde)
 pi_prime$evalute(p = true_p)
 table(sample_pi_prime)/sample_size
+
+##
+# Dice enterprise
+
+rm(list=ls())
+DiceEnterprise$debug("generate.ladder_initial")
+de <- DiceEnterprise$new(G=list(
+  list(c(1,sqrt(2)),c("120","022")),
+  list(c(4,1/2,3),c("470","000","123")),
+  list(c(7,2),matrix(c(1,3,4,0,0,2),byrow=TRUE,ncol=3))
+), verbose = TRUE)
