@@ -12,4 +12,7 @@ LazyData: true
 Depends: R6,
          partitions,
          gtools,
-         data.table
+         data.table,
+         DescTools,
+         ggplot2,
+         parallel

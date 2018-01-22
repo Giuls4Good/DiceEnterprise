@@ -105,3 +105,20 @@ de <- DiceEnterprise$new(G=list(
   list(c(4,1/2,3),c("470","000","123")),
   list(c(7,2),matrix(c(1,3,4,0,0,2),byrow=TRUE,ncol=3))
 ), verbose = TRUE)
+
+##
+# Bernoulli Factory
+
+rm(list=ls())
+BernoulliFactory$debug("initialize")
+BernoulliFactory$debug("sample")
+#f(p) = sqrt(2)p^3/((sqrt(2)-5)p^3+11p^2-9p+3)
+#1-f(p) = (-5p^3+11p^2-9p+3)/((sqrt(2)-5)p^3+11p^2-9p+3)
+bf <- BernoulliFactory$new(f_1 = list(coeff = c(sqrt(2)), power = c(3)),
+                       f_2 = list(coeff = c(-5,11,-9,3), power = c(3,2,1,0)),
+                       verbose = TRUE)
+true_p <- c(0.7,0.3)
+sample_f <- bf$sample(n = 100, true_p = true_p, num_cores = 4)
+print(bf$evaluate(true_p))
+print(table(sample_f)/length(sample_f))
+plotConfidenceInterval(sample_f,bf$evaluate(true_p))

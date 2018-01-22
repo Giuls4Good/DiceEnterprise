@@ -53,16 +53,18 @@ Ladder <- R6::R6Class("Ladder",
       }
       return(currentState)
     },
-    sample = function(n,roll.fun = NULL, true_p = NULL,...) {
+    sample = function(n,roll.fun = NULL, true_p = NULL, num_cores = 1,...) {
       #Get a sample from the ladder using CFTP
       if(is.null(roll.fun) && is.null(true_p)) {stop("Either declare roll.fun or the trye probabilities.")}
-      if(is.null(roll.fun)) {roll.fun <- function(n) {sample(1:private$m, size = n, replace = TRUE, prob = true_p)}}
-      res <- rep(NA, n)
-      for(i in 1:n) {
-        res[i] <- CFTP(k = private$k, roll.fun = roll.fun, update.fun = self$update.fun,
-                    monotonic = FALSE,...)
+      if(is.null(roll.fun)) {
+        stopifnot(isTRUE(all.equal(1,sum(true_p))))
+        roll.fun <- function(n) {sample(1:private$m, size = n, replace = TRUE, prob = true_p)}
       }
-      return(res)
+      res <- mclapply(1:n, function(i) {
+        CFTP(k = private$k, roll.fun = roll.fun, update.fun = self$update.fun,
+             monotonic = FALSE,...)
+      }, mc.cores = num_cores)
+      return(unlist(res))
     },
     evalute = function(p) {
       #Return the values of the ladder for a fixed

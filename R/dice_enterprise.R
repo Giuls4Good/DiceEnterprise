@@ -1,28 +1,32 @@
 BernoulliFactory <- R6::R6Class("BernoulliFactory",
   inherit = DiceEnterprise,
   public = list(
-    # initialize = function(num_string, den_string, variable = "p") {
-    #   #f(p) = num_string/den_string. The variable name can be changed.
-    #   #num_string and den_string are strings defining the function, in LaTeX style.
-    #   #for instance: p^5+5p+4p^1-3p^0+14p^{15}+7
-    #   #NOTICE: the only allowed symbols are: numbers, ^, {, }, +, -
-    #   #The coefficients must be in front of the variable. I.e. 5p, not p5.
-    #   #This means that after a p there can only be a ^, +, -, end of string.
-    #   if(!(variable %in% letters) && !(variable %in% LETTERS)) {
-    #     stop("The variable must be a single lower case letter.")
-    #   }
-    #   if(any(grepl("[^0-9p+\\-\\^{}]",c(num_string,den_string)))) {
-    #     stop("The only allowed symbols are: 0-9, ^, {, }, +, -")
-    #   }
-    #   if(any(grepl(paste0(variable,"[^\\^+\\-]"), c(num_string,den_string)))) {
-    #     stop(paste0(variable," can only be followed by ^,+ or -"))
-    #   }
-    #
-    #   #Check if all the R_i are positive. Discard null ones. Error if there are negatives (function not in a simplex).
-    #}
-    sample = function(n,roll.fun,...) {
-      sample_f <- super$sample(n,roll.fun,...) #Sample from the dice enterprise
-      stop("Do some other stuff")
+    initialize = function(f_1,f_2,verbose = FALSE) {
+      #f_1 and f_2 are lists, each containing
+      #the coefficients of each term (as vector)
+      #and a vector of powers of p for f(p) and 1-f(p).
+      stopifnot(is.list(f_1), is.list(f_2), length(f_1) == 2, length(f_2) == 2,
+                is.numeric(f_1[[1]]), is.numeric(f_1[[2]]), length(f_1[[1]]) == length(f_1[[2]]),
+                all(f_1[[1]] != 0), all(is.wholenumber(f_1[[2]])),
+                is.numeric(f_2[[1]]), is.numeric(f_2[[2]]), length(f_2[[1]]) == length(f_2[[2]]),
+                all(f_2[[1]] != 0), all(is.wholenumber(f_2[[2]]))
+                )
+      if(verbose) {cat("Converting into a function over simplices...")}
+      G <- vector("list", length = 2)
+      #f(p)
+      G[[1]] <- vector("list", length = 2)
+      coeff <- f_1[[1]]
+      power <- f_1[[2]]
+      G[[1]][[1]] <- coeff
+      G[[1]][[2]] <- matrix(c(power,rep(0,length(power))), ncol = 2, byrow = FALSE)
+      #1-f(p) = den - num
+      G[[2]] <- vector("list", length = 2)
+      coeff <- f_2[[1]]
+      power <- f_2[[2]]
+      G[[2]][[1]] <- coeff
+      G[[2]][[2]] <- matrix(c(power,rep(0,length(power))), ncol = 2, byrow = FALSE)
+      if(verbose) {cat("DONE!\n")}
+      super$initialize(G=G, verbose = verbose)
     }
   ),
   private = list(
@@ -41,6 +45,14 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
       private$generate.G_poly(G) #Generate a list containing the polynomials
       if(verbose) {cat("DONE! \nGenerating initial ladder...")}
       private$generate.ladder_initial() #Generate the initial ladder
+      if(verbose) {cat("DONE! \nConstructing a connected ladder...")}
+      aux <- private$ladder_initial$impose.connected()
+      private$ladder_connected <- aux[["obj"]]
+      private$A_initial_connected <- aux[["A"]]
+      if(verbose) {cat("DONE! \nConstructing a fine and connected ladder...")}
+      aux <- private$ladder_connected$impose.fineness()
+      private$ladder_fine_connected <- aux[["obj"]]
+      private$A_fine_connected <- aux[["A"]]
       if(verbose) {cat("DONE! \n")}
     },
     evaluate = function(p) {
@@ -58,17 +70,15 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
       })
       return(p_out/sum(p_out))
     },
-    sample = function(n,roll.fun = NULL, true_p = NULL,...) {
+    sample = function(n,roll.fun = NULL, true_p = NULL, num_cores = 1,...) {
       stopifnot(!is.null(private$ladder_fine_connected),
                 !is.null(private$ladder_initial),
                 !is.null(private$ladder_connected),
                 is.list(private$A_f_initial),
                 is.list(private$A_initial_connected),
                 is.list(private$A_fine_connected))
-      if(is.null(roll.fun) && is.null(true_p)) {stop("Either declare roll.fun or the trye probabilities.")}
-      if(is.null(roll.fun)) {roll.fun <- function(n) {sample(1:private$m, size = n, replace = TRUE, prob = true_p)}}
       #Get a sample from the fine and connected ladder
-      sample_fine_connected <- private$ladder_fine_connected$sample(n = n, roll.fun = roll.fun,...)
+      sample_fine_connected <- private$ladder_fine_connected$sample(n = n, roll.fun = roll.fun, true_p = true_p, num_cores = num_cores,...)
       #Transform sample to the connected ladder
       sample_connected <- disaggregationSample(sample_fine_connected, origin = "original",
                                                disaggDist = private$ladder_connected,
@@ -84,7 +94,8 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
       return(sample_f)
     },
     get_G_poly = function() {private$G_poly},
-    get_ladder_initial = function() {private$ladder_initial$clone()}
+    get_ladder_initial = function() {private$ladder_initial$clone()},
+    get_ladder_fine_connected = function() {private$ladder_fine_connected$clone()}
   ),
   private = list(
     m = NA, #faces of the given die
@@ -144,7 +155,7 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
       #so that a ladder is generated which is a disaggregation of f.
       M_list <- vector("list",private$v) #decompose each polynomial in the required powers
       R_list <- vector("list",private$v)
-      private$A_initial_connected <- vector("list", private$v)
+      private$A_f_initial <- vector("list", private$v)
       M_rows <- 0 #counting the number of rows of the final ladder
       counter <- 0
       for(i in 1:private$v) {
@@ -162,13 +173,29 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
             R_list[[i]] <- c(R_list[[i]], private$G_poly[[i]][[1]][j]) #NOT EFFICIENT
           }
         }
+        #Sum all the coefficients in R that correspond to the same powers
+        indices <- indicesUniqueMat(M_list[[i]])
+        M_list[[i]] <- unique(M_list[[i]])
+        R_aux <- rep(NA, length = nrow(M_list[[i]]))
+        for(l in 1:nrow(M_list[[i]])) {
+          R_aux[l] <- round(sum(R_list[[i]][which(indices == l)]), digits = 8) #round to avoid machine error
+        }
+        R_list[[i]] <- R_aux
+        if(any(R_list[[i]] < 0)) {stop("Generated negative coefficient. Are you sure it is a valid function?")}
+        #Remove zero coefficients
+        if(any(R_list[[i]] == 0)) { #Need to check or M_list[[i]][numeric(0),] is empty!
+          M_list[[i]] <- M_list[[i]][-which(R_list[[i]] == 0),] #NOT GREAT, but it should work cause we rounded up the values of R
+          R_list[[i]] <- R_list[[i]][-which(R_list[[i]] == 0)]
+        }
         M_rows <- M_rows + nrow(M_list[[i]])
-        private$A_initial_connected[[i]] <- (counter+1):(counter+nrow(M_list[[i]]))
+        private$A_f_initial[[i]] <- (counter+1):(counter+nrow(M_list[[i]]))
         counter <- counter+nrow(M_list[[i]])
       }
       #Construct ladder
       M_new <- do.call(rbind, sapply(M_list, unlist))
       R_new <- do.call(c, sapply(R_list, unlist))
+      #Remove zero coefficients
+
       private$ladder_initial <- Ladder$new(M = M_new, R=R_new)
     }
   )

@@ -85,3 +85,14 @@ indicesUniqueMat <- function(M) {
   }
   return(indices)
 }
+
+plotConfidenceInterval <- function(sample_f,true_p = NULL,...)  { #additional parameters to be given to MultinomCI
+  #Compute confidence interval and estimate
+  ci <- as.data.frame(MultinomCI(table(sample_f),...))
+  p <- ggplot(ci, aes(x = 1:max(sample_f), y = est, colour = as.factor(1:max(sample_f)))) + geom_point() +
+    geom_errorbar(aes(ymin = lwr.ci, ymax = upr.ci), width = .2)
+  if(!is.null(true_p)) {
+    p <- p + geom_point(aes(x=1:max(sample_f), y=true_p), pch = 4)
+  }
+  print(p)
+}
