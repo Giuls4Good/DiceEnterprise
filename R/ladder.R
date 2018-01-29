@@ -25,6 +25,7 @@ Ladder <- R6::R6Class("Ladder",
         private$define.neighbourhoods() #Compute neighbourhoods
         private$is.connected() #Check connected
         private$compute.constant() #Compute constant a
+        private$compute.transition.matrix() #Compute transition matrix for the update function
       } else {
         stop("The ladder is not valid.")
       }
@@ -38,8 +39,8 @@ Ladder <- R6::R6Class("Ladder",
       cat("Constant a = ",private$a,"\n",sep="")
     },
     get_connected = function() {private$connected},
-    update.fun = function(i,B,U) {
-      #Update function for the ladder
+    update.fun.global = function(i,B,U) {
+      #Update function for the ladder using the global constant a (NOT EFFICIENT)
       stopifnot(private$connected, private$fine, length(B)==length(U))
       currentState <- i
       for(c in 1:length(B)) {
@@ -53,18 +54,78 @@ Ladder <- R6::R6Class("Ladder",
       }
       return(currentState)
     },
-    sample = function(n,roll.fun = NULL, true_p = NULL, num_cores = 1,...) {
+    update.fun = function(i,B,U) {
+      #Update function for the ladder using local moves (more efficient than the global bersion)
+      stopifnot(private$connected, private$fine, length(B)==length(U))
+      currentState <- i
+      for(c in 1:length(B)) {
+        coeff_cumsum <- private$P_cumsum[[currentState]][[B[c]]]
+        if(length(coeff_cumsum) == 0) {
+          currentState <- currentState #Stay still -> no possible moves
+        } else {
+          nextState_index <- findInterval(U[c], coeff_cumsum) + 1 #+1 cause they start from 0
+          nextState_possibilities <- private$P_moves_list[[currentState]][[B[c]]]
+          if(nextState_index > length(nextState_possibilities)) {
+            currentState <- currentState #Stay still -> U > coeff
+          } else {
+            currentState <- nextState_possibilities[nextState_index]
+          }
+        }
+      }
+      return(currentState)
+    },
+    update.fun.slow = function(i,B,U) {
+      #Update function for the ladder using local moves (more efficient than the global bersion)
+      #Work as update.fun but the implementation is less efficent
+      stopifnot(private$connected, private$fine, length(B)==length(U))
+      currentState <- i
+      for(c in 1:length(B)) {
+        #Find which move
+        move <- which(private$P_moves[currentState,] == B[c])
+        if(length(move) == 0) {
+          currentState <- currentState #There are no ways to go given the current roll
+        } else {
+          move_coeff <- private$P[currentState,move] #Coefficients of the P_matrix
+          nextState_index <- findInterval(U[c], cumsum(move_coeff)) + 1 #+1 cause they start from 0
+          if(nextState_index > length(move)) {
+            currentState <- currentState #Stay still -> U > coeff
+          } else {
+            currentState <- move[nextState_index]
+          }
+        }
+      }
+      return(currentState)
+    },
+    sample = function(n,roll.fun = NULL, true_p = NULL, num_cores = 1, verbose = FALSE, global = FALSE,...) {
       #Get a sample from the ladder using CFTP
+      #If global = TRUE, uses a different update function that makes use of a global constant -> less efficient!
       if(is.null(roll.fun) && is.null(true_p)) {stop("Either declare roll.fun or the trye probabilities.")}
       if(is.null(roll.fun)) {
         stopifnot(isTRUE(all.equal(1,sum(true_p))))
         roll.fun <- function(n) {sample(1:private$m, size = n, replace = TRUE, prob = true_p)}
       }
+      if(private$m > 2) {
+        monotonic_CFTP <- FALSE
+      } else {
+        monotonic_CFTP <- TRUE #Univariate case -> monotonic implementation is possible!
+      }
       res <- mclapply(1:n, function(i) {
-        CFTP(k = private$k, roll.fun = roll.fun, update.fun = self$update.fun,
-             monotonic = FALSE,...)
+        if(global) {
+          CFTP(k = private$k, roll.fun = roll.fun, update.fun = self$update.fun.global,
+               monotonic = monotonic_CFTP, min = 1, max = private$k,verbose=verbose,...) #min, max are used only in monotonic case, otherwise they are ignored
+        } else {
+          CFTP(k = private$k, roll.fun = roll.fun, update.fun = self$update.fun,
+               monotonic = monotonic_CFTP, min = 1, max = private$k,verbose=verbose,...) #min, max are used only in monotonic case, otherwise they are ignored
+        }
       }, mc.cores = num_cores)
-      return(unlist(res))
+
+      if(verbose) {
+        cat("Average time (rolls) required ",mean(unlist(lapply(res, function(x) {x[[2]]}))),"\n")
+        return(unlist(lapply(res, function(x) {x[[1]]})))
+      } else {
+        return(unlist(res))
+      }
+
     },
     evalute = function(p) {
       #Return the values of the ladder for a fixed
@@ -121,7 +182,10 @@ Ladder <- R6::R6Class("Ladder",
         }
       }
       stop("Impossible to create a connected ladder.") #Should never happen.
-    }
+    },
+    get_a = function() {private$a},
+    get_P = function()  {private$P},
+    get_P_moves = function() {private$P_moves}
   ),
   private = list(
     #FIELDS
@@ -132,7 +196,11 @@ Ladder <- R6::R6Class("Ladder",
     fine = NA,
     connected = NA,
     neigh = NULL, #neighbourhood. It is a double indexed list, the first index is the state, the second the roll of the die.
-    a = NA, #constant for the Markov chain
+    a = NA, #constant for the Markov chain. It is used in global update function (DEPRECATED)
+    P = NA, #Transition matrix of the Markov chain. It just contains the cooefficients without the p_i's
+    P_moves = NA, #Moves in the transition matrix
+    P_cumsum = NA, #List double indexed. The first index is the current state, the second is the current role. Returns the cumsum of the coefficients
+    P_moves_list = NA, #List double index. The first index is the current state, the second is the current role. Returns the index of the possible moves
     #METHODS
     is.ladder = function() {
       private$valid = TRUE
@@ -220,5 +288,49 @@ Ladder <- R6::R6Class("Ladder",
         private$a <- max(aux)
       }
       invisible(self)
+    },
+    compute.transition.matrix = function() {
+      #Fill the entries of the transition matrix.
+      #P_ij is equal to R_j/max(sum h in neighbour of j given the roll sum R_h,
+      #sum h in neighbour of i given the roll and that contains j R_h)
+      private$P <- matrix(0, nrow = private$k, ncol = private$k) #Initialize
+      private$P_moves <- matrix(0, nrow = private$k, ncol = private$k)
+      for(i in 1:private$k) {
+        for(b in 1:private$m) {
+          neigh <- private$neigh[[i]][[b]]
+          private$P_moves[i,neigh] <- b
+          for(j in neigh) {
+            num <- private$R[j] #numerator
+            #Find in which neighbour of j there is i
+            for(b_aux in 1:private$m) {
+              if(i %in% private$neigh[[j]][[b_aux]]) {
+                den_aux <- sum(private$R[private$neigh[[j]][[b_aux]]])
+                break
+              }
+            }
+            den <- max(den_aux,sum(private$R[neigh]))
+            private$P[i,j] <- num/den
+          }
+        }
+      }
+      diag(private$P) <- rep(NA,private$k)
+      #Create the list of the cumulative sums to speed up the update function
+      private$P_cumsum <- vector("list", length = private$k)
+      private$P_moves_list <- vector("list", length = private$k)
+      for(i in 1:private$k) {
+        private$P_cumsum[[i]] <- vector("list", length = private$m)
+        private$P_moves_list[[i]] <- vector("list", length = private$m)
+        for(b in 1:private$m) {
+          move <- which(private$P_moves[i,] == b) #Find where it can move from i having rolled b
+          if(length(move) == 0) {
+            private$P_cumsum[[i]][[b]] <- numeric(0)
+            private$P_moves_list[[i]][[b]] <- numeric(0)
+          } else {
+            move_coeff <- private$P[i,move]
+            private$P_cumsum[[i]][[b]] <- cumsum(move_coeff)
+            private$P_moves_list[[i]][[b]] <- move
+          }
+        }
+      }
     }
   ))

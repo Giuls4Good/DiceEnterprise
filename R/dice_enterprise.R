@@ -55,6 +55,11 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
       private$A_fine_connected <- aux[["A"]]
       if(verbose) {cat("DONE! \n")}
     },
+    print = function() {
+      cat("Original function: Delta^",private$m," -> Delta^",private$v,"\n")
+      cat("Fine and connected ladder: Delta^",private$m," -> Delta^",private$ladder_fine_connected$get_k(),"\n")
+      cat("Constant a = ",private$ladder_fine_connected$get_a(),"\n")
+    },
     evaluate = function(p) {
       #This function evaluates the polynomials given fixed probabilites.
       #Useful for testing.
@@ -70,7 +75,7 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
       })
       return(p_out/sum(p_out))
     },
-    sample = function(n,roll.fun = NULL, true_p = NULL, num_cores = 1,...) {
+    sample = function(n,roll.fun = NULL, true_p = NULL, num_cores = 1, verbose = FALSE, global = FALSE,...) {
       stopifnot(!is.null(private$ladder_fine_connected),
                 !is.null(private$ladder_initial),
                 !is.null(private$ladder_connected),
@@ -78,7 +83,8 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
                 is.list(private$A_initial_connected),
                 is.list(private$A_fine_connected))
       #Get a sample from the fine and connected ladder
-      sample_fine_connected <- private$ladder_fine_connected$sample(n = n, roll.fun = roll.fun, true_p = true_p, num_cores = num_cores,...)
+      sample_fine_connected <- private$ladder_fine_connected$sample(n = n, roll.fun = roll.fun, true_p = true_p,
+                                                                    num_cores = num_cores, verbose = verbose,global = global,...)
       #Transform sample to the connected ladder
       sample_connected <- disaggregationSample(sample_fine_connected, origin = "original",
                                                disaggDist = private$ladder_connected,
@@ -192,8 +198,10 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
         counter <- counter+nrow(M_list[[i]])
       }
       #Construct ladder
-      M_new <- do.call(rbind, sapply(M_list, unlist))
-      R_new <- do.call(c, sapply(R_list, unlist))
+      M_new <- do.call(rbind, M_list)
+      R_new <- do.call(c, R_list)
+      # M_new <- do.call(rbind, sapply(M_list, unlist))
+      # R_new <- do.call(c, sapply(R_list, unlist))
       #Remove zero coefficients
 
       private$ladder_initial <- Ladder$new(M = M_new, R=R_new)

@@ -100,11 +100,42 @@ table(sample_pi_prime)/sample_size
 
 rm(list=ls())
 DiceEnterprise$debug("generate.ladder_initial")
+Ladder$debug("initialize")
 de <- DiceEnterprise$new(G=list(
   list(c(1,sqrt(2)),c("120","022")),
   list(c(4,1/2,3),c("470","000","123")),
   list(c(7,2),matrix(c(1,3,4,0,0,2),byrow=TRUE,ncol=3))
 ), verbose = TRUE)
+true_p <- c(0.6,0.2,0.2)
+sample_f <- de$sample(n = 1000, true_p = true_p, num_cores = 4, verbose = TRUE, global = FALSE)
+sample_f_inefficient <- de$sample(n = 10, true_p = true_p, num_cores = 1, verbose = TRUE, global = TRUE) #Uses global consatnt -> inefficient
+print(de$evaluate(true_p))
+print(table(sample_f)/length(sample_f))
+plotConfidenceInterval(sample_f,de$evaluate(true_p))
+require(profvis)
+profvis({de$sample(n = 1000, true_p = true_p, num_cores = 1, verbose = TRUE)})
+require(rbenchmark)
+benchmark(de$sample(n = 1000, true_p = true_p, num_cores = 1, verbose = TRUE, global = FALSE),
+          de$sample(n = 1000, true_p = true_p, num_cores = 2, verbose = TRUE, global = FALSE),
+          de$sample(n = 1000, true_p = true_p, num_cores = 4, verbose = TRUE, global = FALSE),
+          de$sample(n = 1000, true_p = true_p, num_cores = 8, verbose = TRUE, global = FALSE),
+          order = "relative", replications = 1)
+##
+# Dice enterprise example
+de_ladder <- DiceEnterprise$new(G=list(
+  list(sqrt(2),"300"), #G_1
+  list(1,"201"), #G_1
+  list(1/4,"120"), #G_1
+  list(2,"111"), #G_1
+  list(1/2,"102"), #G_1
+  list(3/4,"021") #G_6
+), verbose = TRUE)
+true_p <- c(0.6,0.2,0.2)
+sample_f <- de_ladder$sample(n = 10000, true_p = true_p, num_cores = 1, verbose = TRUE, global = FALSE)
+sample_f_global <- de_ladder$sample(n = 10000, true_p = true_p, num_cores = 1, verbose = TRUE, global = TRUE) #Less efficient (slightly in this case, but can be a lot less efficient!)
+print(de_ladder$evaluate(true_p))
+print(table(sample_f)/length(sample_f))
+plotConfidenceInterval(sample_f,de_ladder$evaluate(true_p))
 
 ##
 # Bernoulli Factory
@@ -118,7 +149,22 @@ bf <- BernoulliFactory$new(f_1 = list(coeff = c(sqrt(2)), power = c(3)),
                        f_2 = list(coeff = c(-5,11,-9,3), power = c(3,2,1,0)),
                        verbose = TRUE)
 true_p <- c(0.7,0.3)
-sample_f <- bf$sample(n = 100, true_p = true_p, num_cores = 4)
+sample_f <- bf$sample(n = 1000, true_p = true_p, num_cores = 1, verbose = TRUE)
 print(bf$evaluate(true_p))
 print(table(sample_f)/length(sample_f))
 plotConfidenceInterval(sample_f,bf$evaluate(true_p))
+
+##
+# Dice enterprise example 2
+rm(list=ls())
+de2 <- DiceEnterprise$new(G=list(
+  list(c(7,sqrt(3)),c("0700","2040")),
+  list(c(4,5),matrix(c(1,1,1,1,10,0,0,0),byrow=TRUE,ncol=4)),
+  list(c(pi/8),"0000")
+), verbose = TRUE)
+print(de2)
+true_p <- c(0.2,0.7,0.06,0.04)
+sample_f <- de2$sample(n = 1000, true_p = true_p, num_cores = 4, verbose = TRUE)
+print(de2$evaluate(true_p))
+print(table(sample_f)/length(sample_f))
+plotConfidenceInterval(sample_f,de2$evaluate(true_p))
