@@ -16,3 +16,6 @@ Depends: R6,
          DescTools,
          ggplot2,
          parallel
+Suggests: knitr,
+    rmarkdown
+VignetteBuilder: knitr

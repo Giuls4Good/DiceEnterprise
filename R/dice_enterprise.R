@@ -27,6 +27,13 @@ BernoulliFactory <- R6::R6Class("BernoulliFactory",
       G[[2]][[2]] <- matrix(c(power,rep(0,length(power))), ncol = 2, byrow = FALSE)
       if(verbose) {cat("DONE!\n")}
       super$initialize(G=G, verbose = verbose)
+    },
+    print = function() {
+      cat("Bernoulli Factory\n")
+      cat("Fine and connected ladder: Delta^",private$m," -> Delta^",private$ladder_fine_connected$get_k(),"\n", sep="")
+    },
+    evaluate = function(p) {
+      super$evaluate(c(p,1-p))
     }
   ),
   private = list(
@@ -56,9 +63,8 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
       if(verbose) {cat("DONE! \n")}
     },
     print = function() {
-      cat("Original function: Delta^",private$m," -> Delta^",private$v,"\n")
-      cat("Fine and connected ladder: Delta^",private$m," -> Delta^",private$ladder_fine_connected$get_k(),"\n")
-      cat("Constant a = ",private$ladder_fine_connected$get_a(),"\n")
+      cat("Original function: Delta^",private$m," -> Delta^",private$v,"\n",sep = "")
+      cat("Fine and connected ladder: Delta^",private$m," -> Delta^",private$ladder_fine_connected$get_k(),"\n", sep="")
     },
     evaluate = function(p) {
       #This function evaluates the polynomials given fixed probabilites.

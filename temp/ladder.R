@@ -168,3 +168,21 @@ sample_f <- de2$sample(n = 1000, true_p = true_p, num_cores = 4, verbose = TRUE)
 print(de2$evaluate(true_p))
 print(table(sample_f)/length(sample_f))
 plotConfidenceInterval(sample_f,de2$evaluate(true_p))
+
+##
+# 2 coin algorithm
+c1 <- 1
+c2 <- 1
+p1 <- 0.00001
+p2 <- 0.00005
+p_dice <- c(p1*p2,(1-p1)*(1-p2),p1*(1-p2),p2*(1-p1)) #convert to Bernstein
+print((c1+c2)/(c1*p1+c2*p2)) #Theoretical of 2 coin
+f_2coin <- list(
+  list(c(c1,c1),c("1000","0010")),
+  list(c(c2,c2),c("1000","0001"))
+)
+de_2coin <- DiceEnterprise$new(f_2coin, verbose = TRUE)
+sample_2coin <- de_2coin$sample(n = 100, true_p = p_dice, num_cores = 2, verbose = TRUE) #Slower :(
+print(de_2coin$evaluate(p_dice))
+print(table(sample_2coin)/length(sample_2coin))
+plotConfidenceInterval(sample_2coin,de_2coin$evaluate(p_dice))
