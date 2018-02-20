@@ -214,3 +214,35 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
     }
   )
 )
+
+CoinsEnterprise <- R6::R6Class("CoinsEnterprise",
+                               inherit = DiceEnterprise,
+                               public = list(
+                                 sample = function(n,toss.coins, num_cores = 1, verbose = FALSE, global = FALSE,...) {
+                                   roll.die <- function(n,...) { #Construct function on the fly
+                                     #This function constructs an m+2 sided die given m independent coins.
+                                     #It returns 1 if all the tosses are heads
+                                     #It returns i+1 if all the tosses are heads, except for the ith coin
+                                     #It returns m+2 otherwise
+                                     #A function f(p) of the probabilities of the independent coins can be converted in this
+                                     #representation by substituing p_i = q_1/(q_1+q_{i+1})
+                                     res <- numeric(n)
+                                     for(i in 1:n) {
+                                       toss_res <- toss.coins(...) #Toss the m coins
+                                       m <- length(toss_res)
+                                       if(isTRUE(all.equal(toss_res,rep(1,m)))) {
+                                         res[i] <- 1
+                                       } else if(length(which(toss_res == 2)) > 1) {
+                                         res[i] <- m+2
+                                       } else { #Only one tails
+                                         res[i] <- which(toss_res == 2)+1
+                                       }
+                                     }
+                                     return(res)
+                                   }
+                                   super$sample(n=n,roll.fun = roll.die, num_cores = num_cores, verbose = verbose, global = global,...)
+                                 }
+                               ),
+                               private = list(
+
+                               ))

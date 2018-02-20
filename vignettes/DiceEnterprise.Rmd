@@ -13,7 +13,8 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  fig.width=7, fig.height=4
+  fig.width=7, fig.height=4,
+  cache=TRUE
 )
 require("DiceEnterprise")
 set.seed(17)
@@ -127,11 +128,75 @@ print(sample_die)
 ```
 
 ### Diagnosis and extra options
+
+Analogously as described in the Bernoulli Factory case, the method `sample` accepts as input a number for the cores to be used as well as the option to print out the average number of rolls needed. The function `plotConfidenceInterval` returns a plot of the estimates together with a 95% confidence interval.
 ```{r de_diagnosis}
 sample_die <- de$sample(n = 1000, roll.fun = roll_die, num_cores = 2, verbose = TRUE) #Produces 1000 rolls of the f(p)-die, using 2 cores
 print(table(sample_die)/1000) #Empirical probabilities. Notice that the theoretical ones are given by print(de$evaluate(c(1/5,1/4,1-1/5-1/4)))
 print(de$evaluate(c(1/5,1/4,1-1/5-1/4)))
-plotConfidenceInterval(sample_die,print(de$evaluate(c(1/5,1/4,1-1/5-1/4))))
+plotConfidenceInterval(sample_die,de$evaluate(c(1/5,1/4,1-1/5-1/4)))
 
 ```
+
+## Independent coins
+
+Assume that instead of an $m$-sided die, $m$ independent coins are given, each one with its own probability of landing heads and denoted by $p_i$. In general, $(p_1,\ldots,p_m) \not\in \Delta^m$. However, considering constructing a $m+2$-sided die with the following probabilities of rolling $\{0,1,\ldots,m\}$ (notice that the index starts now from 0 for convenience).
+$$
+\begin{split}
+&q_0 = p_1\cdot p_2\cdot\ldots \cdot p_m \\
+&q_1 = (1-p_1)\cdot p_2 \cdot \ldots \cdot p_m \\
+&q_2 = p_1 \cdot (1-p_2) \cdot p_3 \cdot \ldots \cdot p_m \\
+&\ldots \\
+&q_m = p_1 \cdot p_2 \cdot \ldots \cdot p_{m-1} \cdot (1-p_m) \\
+&q_{m+1} = 1-\sum_{i=0}^m q_i
+\end{split}
+$$
+It is straightforward to roll such a die by tossing all the $m$ independent coins at the same time. In particular, if all the tosses result in heads, then 0 is returned. If all the tosses are heads, except for the $l$th coin, then $l$ is returned. In all other cases, $m+1$ is returned. Finally, assume that $f(\boldsymbol{p}): (0,1)^m \rightarrow \Delta^v$ is a function of the original probabilities. It is possible to construct a function $\tilde{f}(\boldsymbol{1}): \Delta^{m+2} \rightarrow \Delta^v$ by substituing:
+$$
+p_i = \frac{q_0}{q_0+q_i}, \qquad i \in \{1,2,\ldots,m\}
+$$
+Albeit not being optimal, the described method leads to a valid way to solve this class of problems.
+
+### Example
+
+Assume that we have access to 3 independent coins of biases $(0.4,0.7,0.55)$ and wish to sample from the distribution $f(\boldsymbol{p}) = \frac{1}{p_1+p_2+p_3}\left(p_1,p_2,p_3\right) \approx (8/33,14/33,1/3)$. The first step is defining a function that tosses all the three coins. Notice again that heads corresponds to 1 and tails to 2 (**not to 0**):
+
+```{r indep_tosses}
+toss.coins <- function(probs) {
+  return(sapply(probs, function(p) {sample(1:2, size = 1, prob = c(p,1-p))})) #1 or 2 (not 0))
+}
+```
+
+We then express the function $f(\boldsymbol{p})$ as a function of the transformed variables $\boldsymbol{q} = (q_0,\ldots,q_4)$ previously described. We get:
+$$
+\begin{split}
+f(\boldsymbol{q}) &= \frac{1}{C(\boldsymbol{q})}\left((q_0+q_2)(q_0+q_3),(q_0+q_1)(q_0+q_3),(q_0+q_1)(q_0+q_2)\right) \\
+&= \frac{1}{C(\boldsymbol{q})}\left(q_0^2+q_0q_2+q_0q_3+q_2q_3,q_0^2+q_0q_1+q_0q_3+q_1q_3,q_0^2+q_0q_1+q_0q_2+q_1q_2\right)
+\end{split}
+$$
+where $C(\boldsymbol{q}) = 3(q_0+q_1)(q_0+q_2)(q_0+q_3)\sum_{i=1}^3 \frac{1}{q_0+q_i}$. As before, the user needs to define the three polynomials as a list of coefficients and powers:
+```{r indep_poly}
+f_indep_coins <- list(
+  list(rep(1,4),c("20000","10100","10010","00110")),
+  list(rep(1,4),c("20000","11000","10010","01010")),
+  list(rep(1,4),c("20000","11000","10100","01100"))
+)
+```
+
+Finally, an object of the class `CoinsEnterprise` can be created in a similar fashion as an object of the class `DiceEnterprise`.
+```{r indep_creation}
+ce <- CoinsEnterprise$new(f_indep_coins)
+```
+
+Getting a sample from the newly create die is done analogously as before.
+```{r indep_sample}
+indep_coins_probs <- c(0.4,0.7,0.55)
+result <- ce$sample(n = 1000, toss.coins = toss.coins, num_cores = 2, verbose = TRUE, probs = indep_coins_probs) #the argument probs is passed to toss.coins
+print(table(result)/1000) #Empirical probabilities. Notice that the theoretical ones are given by
+print(indep_coins_probs/sum(indep_coins_probs))
+plotConfidenceInterval(result,indep_coins_probs/sum(indep_coins_probs))
+
+```
+
+
 

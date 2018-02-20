@@ -186,3 +186,57 @@ sample_2coin <- de_2coin$sample(n = 100, true_p = p_dice, num_cores = 2, verbose
 print(de_2coin$evaluate(p_dice))
 print(table(sample_2coin)/length(sample_2coin))
 plotConfidenceInterval(sample_2coin,de_2coin$evaluate(p_dice))
+
+##
+# INDEPENDENT COINS
+#Given 3 independent coins, this simulates with probs
+#f(p) \propto (p_1,p_2,p_3)
+
+rm(list=ls())
+p_coins <- c(0.16,0.18,0.06)
+de_indep <- DiceEnterprise$new(G=list(
+  list(rep(1,4),c("20000","10100","10010","00110")),
+  list(rep(1,4),c("20000","11000","10010","01010")),
+  list(rep(1,4),c("20000","11000","10100","01100"))
+), verbose = TRUE)
+
+toss.coins <- function(true_p) { #tosses the three coins
+  return(sapply(true_p, function(p) {sample(1:2, size = 1, prob = c(p,1-p))})) #1 or 2 (not 0))
+}
+roll.die <- function(n,toss.fun) { #roll the die
+  res <- numeric(n)
+  for(i in 1:n) {
+    while(TRUE) {
+     toss_res <- toss.fun(p_coins)
+     if(isTRUE(all.equal(toss_res,c(1,1,1)))) {
+       res[i] <- 1 #q0
+       break
+     } else if(isTRUE(all.equal(toss_res,c(2,1,1)))) {
+       res[i] <- 2 #q1
+       break
+     } else if(isTRUE(all.equal(toss_res,c(1,2,1)))) {
+       res[i] <- 3 #q2
+       break
+     } else if(isTRUE(all.equal(toss_res,c(1,1,2)))) {
+       res[i] <- 4 #q3
+       break
+     } else {
+       res[i] <- 5 #none of the above
+       break
+     }
+    }
+  }
+  return(res)
+}
+
+sample_size <- 1000
+print(paste0("True prob: ",prod(p_coins)," - ",
+             (1-p_coins[1])*p_coins[2]*p_coins[3]," - ",
+             p_coins[1]*(1-p_coins[2])*p_coins[3]," - ",
+             p_coins[1]*p_coins[2]*(1-p_coins[3])," - "))
+print(table(roll.die(sample_size, toss.fun = toss.coins))/sample_size)
+
+res <- de_indep$sample(n = sample_size, roll.fun = roll.die, verbose = TRUE, toss.fun = toss.coins, num_cores = 4)
+print(paste0("True prob:",p_coins[1]/sum(p_coins)," - ",p_coins[2]/sum(p_coins)," - ",p_coins[3]/sum(p_coins)))
+print(table(res)/sample_size)
+plotConfidenceInterval(res,p_coins/sum(p_coins))
