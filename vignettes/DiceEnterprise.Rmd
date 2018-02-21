@@ -151,7 +151,7 @@ $$
 &q_{m+1} = 1-\sum_{i=0}^m q_i
 \end{split}
 $$
-It is straightforward to roll such a die by tossing all the $m$ independent coins at the same time. In particular, if all the tosses result in heads, then 0 is returned. If all the tosses are heads, except for the $l$th coin, then $l$ is returned. In all other cases, $m+1$ is returned. Finally, assume that $f(\boldsymbol{p}): (0,1)^m \rightarrow \Delta^v$ is a function of the original probabilities. It is possible to construct a function $\tilde{f}(\boldsymbol{1}): \Delta^{m+2} \rightarrow \Delta^v$ by substituing:
+It is straightforward to roll such a die by tossing all the $m$ independent coins at the same time. In particular, if all the tosses result in heads, then 0 is returned. If all the tosses are heads, except for the $l$th coin, then $l$ is returned. In all other cases, $m+1$ is returned. Finally, assume that $f(\boldsymbol{p}): (0,1)^m \rightarrow \Delta^v$ is a function of the original probabilities. It is possible to construct a function $\tilde{f}(\boldsymbol{q}): \Delta^{m+2} \rightarrow \Delta^v$ by substituing:
 $$
 p_i = \frac{q_0}{q_0+q_i}, \qquad i \in \{1,2,\ldots,m\}
 $$
@@ -159,7 +159,7 @@ Albeit not being optimal, the described method leads to a valid way to solve thi
 
 ### Example
 
-Assume that we have access to 3 independent coins of biases $(0.4,0.7,0.55)$ and wish to sample from the distribution $f(\boldsymbol{p}) = \frac{1}{p_1+p_2+p_3}\left(p_1,p_2,p_3\right) \approx (8/33,14/33,1/3)$. The first step is defining a function that tosses all the three coins. Notice again that heads corresponds to 1 and tails to 2 (**not to 0**):
+Assume that we have access to 3 independent coins of biases $(0.4,0.7,0.55)$ and wish to sample from the distribution $f(\boldsymbol{p}) = \frac{1}{p_1+p_2+p_3}\left(p_1,p_2,p_3\right) = (8/33,14/33,1/3)$. The first step is defining a function that tosses all the three coins. Notice again that heads corresponds to 1 and tails to 2 (**not to 0**):
 
 ```{r indep_tosses}
 toss.coins <- function(probs) {
