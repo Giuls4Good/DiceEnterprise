@@ -15,7 +15,8 @@ Depends: R6,
          data.table,
          DescTools,
          ggplot2,
-         parallel
+         parallel,
+         pander
 Suggests: knitr,
     rmarkdown
 VignetteBuilder: knitr

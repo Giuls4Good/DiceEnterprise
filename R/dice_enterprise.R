@@ -30,7 +30,7 @@ BernoulliFactory <- R6::R6Class("BernoulliFactory",
     },
     print = function() {
       cat("Bernoulli Factory\n")
-      cat("Fine and connected ladder: Delta^",private$m," -> Delta^",private$ladder_fine_connected$get_k(),"\n", sep="")
+      cat("Fine and connected ladder: Delta^",private$m," -> Delta^",private$ladder_fine_connected$get.k(),"\n", sep="")
     },
     evaluate = function(p) {
       super$evaluate(c(p,1-p))
@@ -64,7 +64,7 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
     },
     print = function() {
       cat("Original function: Delta^",private$m," -> Delta^",private$v,"\n",sep = "")
-      cat("Fine and connected ladder: Delta^",private$m," -> Delta^",private$ladder_fine_connected$get_k(),"\n", sep="")
+      cat("Fine and connected ladder: Delta^",private$m," -> Delta^",private$ladder_fine_connected$get.k(),"\n", sep="")
     },
     evaluate = function(p) {
       #This function evaluates the polynomials given fixed probabilites.
@@ -81,7 +81,7 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
       })
       return(p_out/sum(p_out))
     },
-    sample = function(n,roll.fun = NULL, true_p = NULL, num_cores = 1, verbose = FALSE, global = FALSE,...) {
+    sample = function(n,roll.fun = NULL, true_p = NULL, num_cores = 1, verbose = FALSE, global = FALSE, double_time = FALSE,...) {
       stopifnot(!is.null(private$ladder_fine_connected),
                 !is.null(private$ladder_initial),
                 !is.null(private$ladder_connected),
@@ -89,25 +89,35 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
                 is.list(private$A_initial_connected),
                 is.list(private$A_fine_connected))
       #Get a sample from the fine and connected ladder
-      sample_fine_connected <- private$ladder_fine_connected$sample(n = n, roll.fun = roll.fun, true_p = true_p,
-                                                                    num_cores = num_cores, verbose = verbose,global = global,...)
+      sample_res <- private$ladder_fine_connected$sample(n = n, roll.fun = roll.fun, true_p = true_p,
+                                                                    num_cores = num_cores, verbose = verbose,global = global, double_time = double_time,...)
+      if(verbose) {
+        sample_fine_connected <- sample_res[[1]]
+      } else {
+        sample_fine_connected <- sample_res
+      }
       #Transform sample to the connected ladder
-      sample_connected <- disaggregationSample(sample_fine_connected, origin = "original",
+      sample_connected <- disaggregation.sample(sample_fine_connected, origin = "original",
                                                disaggDist = private$ladder_connected,
                                                A = private$A_fine_connected)
       #Transform sample to the initial ladder
-      sample_initial <- disaggregationSample(sample_connected, origin = "disaggregation",
+      sample_initial <- disaggregation.sample(sample_connected, origin = "disaggregation",
                                              disaggDist = private$ladder_connected,
                                              A = private$A_initial_connected)
       #Transform sample to initial function
-      sample_f <- disaggregationSample(sample_initial, origin = "disaggregation",
+      sample_f <- disaggregation.sample(sample_initial, origin = "disaggregation",
                                        disaggDist = private$ladder_initial,
                                        A = private$A_f_initial)
-      return(sample_f)
+      if(verbose) {
+        return(list(sample_f, exp_rolls = sample_res[[2]]))
+      } else {
+        return(sample_f)
+      }
+
     },
-    get_G_poly = function() {private$G_poly},
-    get_ladder_initial = function() {private$ladder_initial$clone()},
-    get_ladder_fine_connected = function() {private$ladder_fine_connected$clone()}
+    get.G.poly = function() {private$G_poly},
+    get.ladder.initial = function() {private$ladder_initial$clone()},
+    get.ladder.fine.connected = function() {private$ladder_fine_connected$clone()}
   ),
   private = list(
     m = NA, #faces of the given die
@@ -174,11 +184,11 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
         for(j in 1:length(private$G_poly[[i]][[3]])) { #For each coefficient
           deg <- private$G_poly[[i]][[3]][j] #degree of the a_n
           if(private$d > deg) {
-            M_list[[i]] <- rbind(M_list[[i]], t(apply(discreteSimplex(private$d-deg,private$m), 1, function(x) {
+            M_list[[i]] <- rbind(M_list[[i]], t(apply(discrete.simplex(private$d-deg,private$m), 1, function(x) {
               x + private$G_poly[[i]][[2]][j,]
             }))) #NOT EFFICIENT
-            R_list[[i]] <- c(R_list[[i]], apply(discreteSimplex(private$d-deg,private$m), 1, function(x) {
-              private$G_poly[[i]][[1]][j]*multinomialCoeff(private$d-deg,x)
+            R_list[[i]] <- c(R_list[[i]], apply(discrete.simplex(private$d-deg,private$m), 1, function(x) {
+              private$G_poly[[i]][[1]][j]*multinomial.coeff(private$d-deg,x)
             })) #NOT EFFICIENT
           } else {
             M_list[[i]] <- rbind(M_list[[i]], private$G_poly[[i]][[2]][j,]) #NOT EFFICIENT
@@ -186,7 +196,7 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
           }
         }
         #Sum all the coefficients in R that correspond to the same powers
-        indices <- indicesUniqueMat(M_list[[i]])
+        indices <- indices.unique.mat(M_list[[i]])
         M_list[[i]] <- unique(M_list[[i]])
         R_aux <- rep(NA, length = nrow(M_list[[i]]))
         for(l in 1:nrow(M_list[[i]])) {
@@ -218,18 +228,29 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
 CoinsEnterprise <- R6::R6Class("CoinsEnterprise",
                                inherit = DiceEnterprise,
                                public = list(
-                                 sample = function(n,toss.coins, num_cores = 1, verbose = FALSE, global = FALSE,...) {
-                                   roll.die <- function(n,...) { #Construct function on the fly
-                                     #This function constructs an m+2 sided die given m independent coins.
-                                     #It returns 1 if all the tosses are heads
-                                     #It returns i+1 if all the tosses are heads, except for the ith coin
-                                     #It returns m+2 otherwise
-                                     #A function f(p) of the probabilities of the independent coins can be converted in this
-                                     #representation by substituing p_i = q_1/(q_1+q_{i+1})
-                                     res <- numeric(n)
-                                     for(i in 1:n) {
-                                       toss_res <- toss.coins(...) #Toss the m coins
-                                       m <- length(toss_res)
+                                 initialize = function(G,toss.coins,die_type = c("toss_all","first_heads"), verbose = FALSE) {
+                                   private$die_type <- match.arg(die_type)
+                                   private$toss.coins.fun <- toss.coins
+                                   super$initialize(G=G,verbose=verbose)
+                                 },
+                                 roll.die = function(n,...) {
+                                   #If die_type = "toss_all"
+                                   #This function constructs an m+2 sided die given m independent coins.
+                                   #It returns 1 if all the tosses are heads
+                                   #It returns i+1 if all the tosses are heads, except for the ith coin
+                                   #It returns m+2 otherwise
+                                   #A function f(p) of the probabilities of the independent coins can be converted in this
+                                   #representation by substituing p_i = q_1/(q_1+q_{i+1})
+                                   #If die_type = "first_heads"
+                                   #This function constructs an m+1 sided die given m independent coins.
+                                   #It returns the position of the first heads and returns m+1 if all tails
+                                   #A function f(p) of the probabilities of the independent coins can be converted in this
+                                   #representation by substituting p_i = q_i/(1-sum_{k=1}^{i-1} q_k)
+                                   res <- numeric(n)
+                                   for(i in 1:n) {
+                                     toss_res <- private$toss.coins.fun(...) #Toss the m coins
+                                     m <- length(toss_res)
+                                     if(private$die_type == "toss_all") {
                                        if(isTRUE(all.equal(toss_res,rep(1,m)))) {
                                          res[i] <- 1
                                        } else if(length(which(toss_res == 2)) > 1) {
@@ -237,12 +258,23 @@ CoinsEnterprise <- R6::R6Class("CoinsEnterprise",
                                        } else { #Only one tails
                                          res[i] <- which(toss_res == 2)+1
                                        }
+                                     } else if(private$die_type == "first_heads") {
+                                       if(any(toss_res == 1, na.rm = TRUE)) {
+                                         res[i] <- which(toss_res == 1)[1]
+                                       } else {
+                                         res[i] <- m+1 #All tails
+                                       }
+                                     } else {
+                                       stop("Unknown specified type of die.")
                                      }
-                                     return(res)
                                    }
-                                   super$sample(n=n,roll.fun = roll.die, num_cores = num_cores, verbose = verbose, global = global,...)
+                                   return(res)
+                                 },
+                                 sample = function(n, num_cores = 1, verbose = FALSE, global = FALSE, double_time = FALSE,...) {
+                                   super$sample(n=n,roll.fun = self$roll.die, num_cores = num_cores, verbose = verbose, global = global,double_time = double_time,...)
                                  }
                                ),
                                private = list(
-
+                                die_type = NULL,
+                                toss.coins.fun = NULL
                                ))

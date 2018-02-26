@@ -84,13 +84,13 @@ sample_pi <- pi$sample(n = sample_size, roll.fun = function(n) {sample(1:length(
 pi$evalute(p = true_p)
 table(sample_pi)/sample_size
 #4) Transform sample to pi_tilde
-sample_pi_tilde <- disaggregationSample(sample_pi, origin = "original",
+sample_pi_tilde <- disaggregation.sample(sample_pi, origin = "original",
                                         disaggDist = pi_tilde, A = A_pi_tilde)
 # check correctness
 pi_tilde$evalute(p = true_p)
 table(sample_pi_tilde)/sample_size
 #5) Transform sample to pi_prime
-sample_pi_prime <- disaggregationSample(sample_pi_tilde, origin = "disaggregation",
+sample_pi_prime <- disaggregation.sample(sample_pi_tilde, origin = "disaggregation",
                                         disaggDist = pi_tilde, A = A_prime_tilde)
 pi_prime$evalute(p = true_p)
 table(sample_pi_prime)/sample_size
@@ -111,7 +111,7 @@ sample_f <- de$sample(n = 1000, true_p = true_p, num_cores = 4, verbose = TRUE, 
 sample_f_inefficient <- de$sample(n = 10, true_p = true_p, num_cores = 1, verbose = TRUE, global = TRUE) #Uses global consatnt -> inefficient
 print(de$evaluate(true_p))
 print(table(sample_f)/length(sample_f))
-plotConfidenceInterval(sample_f,de$evaluate(true_p))
+plot.confidence.interval(sample_f,de$evaluate(true_p))
 require(profvis)
 profvis({de$sample(n = 1000, true_p = true_p, num_cores = 1, verbose = TRUE)})
 require(rbenchmark)
@@ -135,7 +135,7 @@ sample_f <- de_ladder$sample(n = 10000, true_p = true_p, num_cores = 1, verbose 
 sample_f_global <- de_ladder$sample(n = 10000, true_p = true_p, num_cores = 1, verbose = TRUE, global = TRUE) #Less efficient (slightly in this case, but can be a lot less efficient!)
 print(de_ladder$evaluate(true_p))
 print(table(sample_f)/length(sample_f))
-plotConfidenceInterval(sample_f,de_ladder$evaluate(true_p))
+plot.confidence.interval(sample_f,de_ladder$evaluate(true_p))
 
 ##
 # Bernoulli Factory
@@ -152,7 +152,7 @@ true_p <- c(0.7,0.3)
 sample_f <- bf$sample(n = 1000, true_p = true_p, num_cores = 1, verbose = TRUE)
 print(bf$evaluate(true_p))
 print(table(sample_f)/length(sample_f))
-plotConfidenceInterval(sample_f,bf$evaluate(true_p))
+plot.confidence.interval(sample_f,bf$evaluate(true_p))
 
 ##
 # Dice enterprise example 2
@@ -167,7 +167,7 @@ true_p <- c(0.2,0.7,0.06,0.04)
 sample_f <- de2$sample(n = 1000, true_p = true_p, num_cores = 4, verbose = TRUE)
 print(de2$evaluate(true_p))
 print(table(sample_f)/length(sample_f))
-plotConfidenceInterval(sample_f,de2$evaluate(true_p))
+plot.confidence.interval(sample_f,de2$evaluate(true_p))
 
 ##
 # 2 coin algorithm
@@ -185,7 +185,7 @@ de_2coin <- DiceEnterprise$new(f_2coin, verbose = TRUE)
 sample_2coin <- de_2coin$sample(n = 100, true_p = p_dice, num_cores = 2, verbose = TRUE) #Slower :(
 print(de_2coin$evaluate(p_dice))
 print(table(sample_2coin)/length(sample_2coin))
-plotConfidenceInterval(sample_2coin,de_2coin$evaluate(p_dice))
+plot.confidence.interval(sample_2coin,de_2coin$evaluate(p_dice))
 
 ##
 # INDEPENDENT COINS
@@ -193,12 +193,22 @@ plotConfidenceInterval(sample_2coin,de_2coin$evaluate(p_dice))
 #f(p) \propto (p_1,p_2,p_3)
 
 rm(list=ls())
-p_coins <- c(0.16,0.18,0.06)
+p_coins <- c(0.006,0.008,0.009)
 de_indep <- DiceEnterprise$new(G=list(
   list(rep(1,4),c("20000","10100","10010","00110")),
   list(rep(1,4),c("20000","11000","10010","01010")),
   list(rep(1,4),c("20000","11000","10100","01100"))
 ), verbose = TRUE)
+de_indep2 <- DiceEnterprise$new(G=list( #Different definition of the die
+  list(c(1,-2,1,-1,1),c("1000","2000","3000","1100","2100")),
+  list(c(1,-1,-1),c("0100","1100","0200")),
+  list(c(1,-1),c("0010","1010"))
+), verbose = TRUE)
+de_indep3 <- DiceEnterprise$new(G=list( #Another definition of the die
+  list(c(-1,-1,3,2,-3,-1,1),c("3000","2100","2000","1100","1000","0100","0000")),
+  list(c(1,2,-2,1,-2,1),c("2000","1100","1000","0200","0100","0000")),
+  list(c(1,1,1,-2,-1,-1,1),c("2000","1100","1010","1000","0100","0010","0000"))
+))
 
 toss.coins <- function(true_p) { #tosses the three coins
   return(sapply(true_p, function(p) {sample(1:2, size = 1, prob = c(p,1-p))})) #1 or 2 (not 0))
@@ -228,15 +238,58 @@ roll.die <- function(n,toss.fun) { #roll the die
   }
   return(res)
 }
-
+roll.die2 <- function(n, toss.fun) { #This function uses a different definition for the die
+  res <- numeric(n)
+  for(i in 1:n) {
+    toss_res <- toss.coins(p_coins)
+    if(any(toss_res == 1)) {
+      res[i] <- which(toss_res == 1)[1]
+    } else {
+      res[i] <- length(toss_res)+1 #All tails
+    }
+  }
+  return(res)
+}
+roll.die3 <- function(n, toss.fun) { #This function uses another definition for the die
+  res <- numeric(n)
+  for(i in 1:n) {
+    toss_res <- toss.coins(p_coins)
+    if(any(toss_res == 2)) {
+      res[i] <- which(toss_res == 2)[1]
+    } else {
+      res[i] <- length(toss_res)+1 #All heads
+    }
+  }
+  return(res)
+}
 sample_size <- 1000
 print(paste0("True prob: ",prod(p_coins)," - ",
              (1-p_coins[1])*p_coins[2]*p_coins[3]," - ",
              p_coins[1]*(1-p_coins[2])*p_coins[3]," - ",
              p_coins[1]*p_coins[2]*(1-p_coins[3])," - "))
 print(table(roll.die(sample_size, toss.fun = toss.coins))/sample_size)
+print(paste0("True prob: ",p_coins[1]," - ",
+             (1-p_coins[1])*p_coins[2], " - ",
+             (1-p_coins[1])*(1-p_coins[2])*p_coins[3]," - ",
+             prod(1-p_coins)))
+print(table(roll.die2(sample_size, toss.fun = toss.coins))/sample_size)
+print(paste0("True prob: ",1-p_coins[1]," - ",
+             (p_coins[1])*(1-p_coins[2]), " - ",
+             (p_coins[1])*(p_coins[2])*(1-p_coins[3])," - ",
+             prod(p_coins)))
+print(table(roll.die3(sample_size, toss.fun = toss.coins))/sample_size)
 
 res <- de_indep$sample(n = sample_size, roll.fun = roll.die, verbose = TRUE, toss.fun = toss.coins, num_cores = 4)
+res2 <- de_indep2$sample(n = sample_size, roll.fun = roll.die2, verbose = TRUE, toss.fun = toss.coins, num_cores = 4)
+res3 <- de_indep3$sample(n = sample_size, roll.fun = roll.die3, verbose = TRUE, toss.fun = toss.coins, num_cores = 4)
+#Notice that in the first method all the 3 coins are tossed at each roll.
+#In the second and third method, the expected number of tosses at each roll is given by
+exp_tosses2 <- p_coins[1]+2*(1-p_coins[1])*p_coins[2]+3*(1-p_coins[1])*(1-p_coins[2])
+exp_tosses3 <- (1-p_coins[1])+2*(p_coins[1])*(1-p_coins[2])+3*(p_coins[1])*(p_coins[2])
 print(paste0("True prob:",p_coins[1]/sum(p_coins)," - ",p_coins[2]/sum(p_coins)," - ",p_coins[3]/sum(p_coins)))
 print(table(res)/sample_size)
-plotConfidenceInterval(res,p_coins/sum(p_coins))
+print(table(res2)/sample_size)
+print(table(res3)/sample_size)
+plot.confidence.interval(res,p_coins/sum(p_coins))
+plot.confidence.interval(res2,p_coins/sum(p_coins))
+plot.confidence.interval(res3,p_coins/sum(p_coins))

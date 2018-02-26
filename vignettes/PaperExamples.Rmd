@@ -1,0 +1,68 @@
+---
+title: "Reproducing Paper Examples"
+author: "Giulio Morina"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width=7, fig.height=4,
+  cache=TRUE
+)
+require("DiceEnterprise")
+require("pander")
+set.seed(10,"L'Ecuyer-CMRG")
+```
+
+## Example 1 - Bernoulli Factory
+$$
+f(p) = \frac{\sqrt{2}p^3}{(\sqrt{2}-5)p^3+11p^2-9p+3}
+$$
+
+```{r bf_setup, results='asis'}
+sample_size <- 1000 #Number of tosses
+probs_vec <- c(0.001,0.01,0.1,0.25,0.5,0.75,0.9,0.99,0.999) #Vector of true probabilities of the p-coin
+num_cores <- 4 #Number of cores used (parallel computing is not supported on Windows)
+conf_level <- 0.95 #Confidence interval level
+toss.coin <- function(n, p) {
+  sample(1:2, size = n, replace = TRUE, prob = c(p,1-p))
+}
+bf <- BernoulliFactory$new(f_1 = list(coeff = c(sqrt(2)), power = c(3)), 
+                           f_2 = list(coeff = c(-5,11,-9,3), power = c(3,2,1,0))) 
+bf_res <- matrix(NA, nrow = 6, ncol = length(probs_vec))
+rownames(bf_res) <- c("f(p)", "LowerCI", "Emp.f(p)", "UppCI", "Exp.TossesNoDoubling", "Exp.TossesDoubling")
+colnames(bf_res) <- as.character(probs_vec)
+for(i in 1:length(probs_vec)) {
+  sample_res <- bf$sample(n = sample_size, roll.fun = toss.coin, p = probs_vec[i], num_cores = num_cores, verbose = TRUE, double_time = FALSE)
+  sample_res_double_time <- bf$sample(n = sample_size, roll.fun = toss.coin, p = probs_vec[i], num_cores = num_cores, verbose = TRUE, double_time = TRUE)
+  #Get lower and upper CI
+  if(isTRUE(all.equal(sample_res[[1]],rep(1,sample_size)))) {
+    #All equal to 1 (Heads)
+    lower_ci <- 1
+    upper_ci <- 1
+  } else if(isTRUE(all.equal(sample_res[[1]],rep(2,sample_size)))) {
+    #All equal to 2 (Tails)
+    lower_ci <- 0
+    upper_ci <- 0
+  } else {
+    ci <- MultinomCI(table(sample_res[[1]]),conf.level = conf_level)
+    lower_ci <- ci[1,2]
+    upper_ci <- ci[1,3]
+  }
+  bf_res[1,i] <- round(bf$evaluate(p = probs_vec[i])[1],2)
+  bf_res[2,i] <- round(lower_ci,2)
+  bf_res[3,i] <- round(1-mean(sample_res[[1]]-1),2)
+  bf_res[4,i] <- round(upper_ci,2)
+  bf_res[5,i] <- round(mean(sample_res[[2]]),2)
+  bf_res[6,i] <- round(mean(sample_res_double_time[[2]]),2)
+}
+pandoc.table(bf_res)
+```
+

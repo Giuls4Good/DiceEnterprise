@@ -1,4 +1,5 @@
-CFTP <- function(k, roll.fun, update.fun, monotonic = FALSE, min = NA, max = NA, verbose = FALSE,...) {
+CFTP <- function(k, roll.fun, update.fun, monotonic = FALSE, min = NA, max = NA, verbose = FALSE, double_time = FALSE,...) {
+  #if double_time = true, it doubles the time span at each step. Otherwise it is just increased by one.
   #if verbose = true, a list is returned containing the time required in terms of iterations
   #min, max are used only in montonoic case, otherwise they are ignored
   if(monotonic) {
@@ -18,7 +19,11 @@ CFTP <- function(k, roll.fun, update.fun, monotonic = FALSE, min = NA, max = NA,
       X[counter] <- update.fun(i,B,U)
       counter <- counter + 1
     }
-    T <- 2*T
+    if(double_time) {
+      T <- 2*T
+    } else {
+      T <- T+1
+    }
   }
   if(verbose) {
     return(list(X=X[1], T=T))

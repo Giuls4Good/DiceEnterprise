@@ -1,7 +1,7 @@
 DiscreteDist <- R6::R6Class("DiscreteDistribution",
   public = list(
-    get_k = function() {private$k},
-    get_R = function() {private$R}
+    get.k = function() {private$k},
+    get.R = function() {private$R}
   ),
   private = list(
     k = NULL, #Number of categories
@@ -38,7 +38,7 @@ Ladder <- R6::R6Class("Ladder",
       cat("Connected ladder: ",private$connected,"\n", sep="")
       cat("Constant a = ",private$a,"\n",sep="")
     },
-    get_connected = function() {private$connected},
+    get.connected = function() {private$connected},
     update.fun.global = function(i,B,U) {
       #Update function for the ladder using the global constant a (NOT EFFICIENT)
       stopifnot(private$connected, private$fine, length(B)==length(U))
@@ -96,7 +96,7 @@ Ladder <- R6::R6Class("Ladder",
       }
       return(currentState)
     },
-    sample = function(n,roll.fun = NULL, true_p = NULL, num_cores = 1, verbose = FALSE, global = FALSE,...) {
+    sample = function(n,roll.fun = NULL, true_p = NULL, num_cores = 1, verbose = FALSE, global = FALSE, double_time = FALSE,...) {
       #Get a sample from the ladder using CFTP
       #If global = TRUE, uses a different update function that makes use of a global constant -> less efficient!
       if(is.null(roll.fun) && is.null(true_p)) {stop("Either declare roll.fun or the trye probabilities.")}
@@ -112,16 +112,15 @@ Ladder <- R6::R6Class("Ladder",
       res <- mclapply(1:n, function(i) {
         if(global) {
           CFTP(k = private$k, roll.fun = roll.fun, update.fun = self$update.fun.global,
-               monotonic = monotonic_CFTP, min = 1, max = private$k,verbose=verbose,...) #min, max are used only in monotonic case, otherwise they are ignored
+               monotonic = monotonic_CFTP, min = 1, max = private$k,verbose=verbose, double_time = double_time,...) #min, max are used only in monotonic case, otherwise they are ignored
         } else {
           CFTP(k = private$k, roll.fun = roll.fun, update.fun = self$update.fun,
-               monotonic = monotonic_CFTP, min = 1, max = private$k,verbose=verbose,...) #min, max are used only in monotonic case, otherwise they are ignored
+               monotonic = monotonic_CFTP, min = 1, max = private$k,verbose=verbose, double_time = double_time,...) #min, max are used only in monotonic case, otherwise they are ignored
         }
       }, mc.cores = num_cores)
 
       if(verbose) {
-        cat("Average time (rolls) required ",mean(unlist(lapply(res, function(x) {x[[2]]}))),"\n")
-        return(unlist(lapply(res, function(x) {x[[1]]})))
+        return(list(unlist(lapply(res, function(x) {x[[1]]})), exp_rolls = (unlist(lapply(res, function(x) {x[[2]]})))))
       } else {
         return(unlist(res))
       }
@@ -144,7 +143,7 @@ Ladder <- R6::R6Class("Ladder",
       new_k <- nrow(unique(private$M))
       A <- vector("list", new_k) #initialize partition
       #WRONG: indices <- match(data.frame(t(private$M)), data.frame(unique(t(private$M)))) #It may have gaps!
-      indices <- indicesUniqueMat(private$M) #Find unique rows of M and assign them an index.
+      indices <- indices.unique.mat(private$M) #Find unique rows of M and assign them an index.
       new_R <- numeric(length = new_k)
       new_M <- matrix(NA, ncol = private$m, nrow = new_k)
       for(i in 1:new_k) {
@@ -164,7 +163,7 @@ Ladder <- R6::R6Class("Ladder",
       #NOT EFFICIENT: we could precompute the minimum degree necessary
       #to have a connected ladder
       for(d in 1:private$degree) {
-        discrete_simplex <- discreteSimplex(d=d,m=private$m) #all possible combinations
+        discrete_simplex <- discrete.simplex(d=d,m=private$m) #all possible combinations
         new_M_list <- vector("list", private$k)
         for(i in 1:private$k) {
           new_M_list[[i]] <- data.frame(t(apply(discrete_simplex, 1, function(vec) {vec+private$M[i,]})))
@@ -172,10 +171,10 @@ Ladder <- R6::R6Class("Ladder",
         #Construct a ladder with the new M and check if it is connected
         new_M <- as.matrix(rbindlist(new_M_list))
         test_ladder <- Ladder$new(M = new_M, R=rep(1,nrow(new_M)))
-        if(test_ladder$get_connected()) {
+        if(test_ladder$get.connected()) {
           #The ladder is connected!
           #Compute the new vector R
-          discrete_simplex_binomial <- as.numeric(apply(discrete_simplex,1,function(vec) {multinomialCoeff(d=d,n=vec)}))
+          discrete_simplex_binomial <- as.numeric(apply(discrete_simplex,1,function(vec) {multinomial.coeff(d=d,n=vec)}))
           new_R <- rep(private$R, each=length(discrete_simplex_binomial))*discrete_simplex_binomial
           A <- split(1:nrow(new_M), rep(1:private$k, each=length(discrete_simplex_binomial)))
           return(list(obj = Ladder$new(M=new_M, R=new_R), A=A))
@@ -183,9 +182,9 @@ Ladder <- R6::R6Class("Ladder",
       }
       stop("Impossible to create a connected ladder.") #Should never happen.
     },
-    get_a = function() {private$a},
-    get_P = function()  {private$P},
-    get_P_moves = function() {private$P_moves}
+    get.a = function() {private$a},
+    get.P = function()  {private$P},
+    get.P.moves = function() {private$P_moves}
   ),
   private = list(
     #FIELDS
