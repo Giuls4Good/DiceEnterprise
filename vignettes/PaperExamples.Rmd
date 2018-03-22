@@ -18,6 +18,8 @@ knitr::opts_chunk$set(
 )
 require("DiceEnterprise")
 require("pander")
+require("ggplot2")
+require("xtable")
 set.seed(10,"L'Ecuyer-CMRG")
 ```
 
@@ -28,7 +30,7 @@ $$
 
 ```{r bf_setup, results='asis'}
 sample_size <- 1000 #Number of tosses
-probs_vec <- c(0.001,0.01,0.1,0.25,0.5,0.75,0.9,0.99,0.999) #Vector of true probabilities of the p-coin
+probs_vec <- c(0.01,0.1,0.25,0.5,0.75,0.9,0.99) #Vector of true probabilities of the p-coin
 num_cores <- 4 #Number of cores used (parallel computing is not supported on Windows)
 conf_level <- 0.95 #Confidence interval level
 toss.coin <- function(n, p) {
@@ -36,6 +38,7 @@ toss.coin <- function(n, p) {
 }
 bf <- BernoulliFactory$new(f_1 = list(coeff = c(sqrt(2)), power = c(3)), 
                            f_2 = list(coeff = c(-5,11,-9,3), power = c(3,2,1,0))) 
+
 bf_res <- matrix(NA, nrow = 6, ncol = length(probs_vec))
 rownames(bf_res) <- c("f(p)", "LowerCI", "Emp.f(p)", "UppCI", "Exp.TossesNoDoubling", "Exp.TossesDoubling")
 colnames(bf_res) <- as.character(probs_vec)
@@ -64,5 +67,177 @@ for(i in 1:length(probs_vec)) {
   bf_res[6,i] <- round(mean(sample_res_double_time[[2]]),2)
 }
 pandoc.table(bf_res)
+```
+
+```{r bf_latex, eval = FALSE, echo = FALSE}
+  xtable(bf_res, align = c("l|",rep("c",ncol(bf_res))))
+```
+
+
+## Example 2 - Dice Enterprise
+
+$$
+\pi(p_1,p_2,p_3) \propto \left(\sqrt{2}p_1^3,p_1^2p_3,\frac{1}{4}p_1p_2^2,2p_1p_2p_3,\frac{1}{2}p_1p_3^2,\frac{3}{4}p_2^2p_3\right)
+$$
+
+```{r de, result='asis'}
+sample_size <- 1000 #Number of rolls
+probs_mat <- matrix(c(1/5,1/4,11/20,
+                      1/10,4/10,5/10), ncol = 3, byrow = TRUE) #Matrix of true probabilities of the die
+num_cores <- 4 #Number of cores used (parallel computing is not supported on Windows)
+conf_level <- 0.95 #Confidence interval level
+roll_die <- function(n, probs_die) {
+  sample(1:3, size = n, replace = TRUE, prob = probs_die)
+} 
+de <-  DiceEnterprise$new(G=list(
+  list(sqrt(2),"300"),
+  list(1,"201"),
+  list(1/4,"120"),
+  list(2,"111"),
+  list(1/2,"102"),
+  list(3/4,"021")
+))
+
+de_res <- matrix(NA, nrow = 6, ncol = nrow(probs_mat))
+rownames(de_res) <- c("f(p)", "LowerCI", "Emp.f(p)", "UppCI", "Exp.RollsNoDoubling", "Exp.RollsDoubling")
+colnames(de_res) <- apply(probs_mat, 1, function(x) { paste0("(",paste0(x, collapse = ", "),")")} )
+
+for(i in 1:nrow(probs_mat)) {
+  de_sample_double_time <- de$sample(n=sample_size, roll.fun = roll_die, double_time = TRUE, num_cores = num_cores, verbose = TRUE, probs_die = probs_mat[i,])
+  de_sample <- de$sample(n=sample_size, roll.fun = roll_die, double_time = FALSE, num_cores = num_cores, verbose = TRUE, probs_die = probs_mat[i,])
+  if(length(unique(de_sample[[1]])) > 1) {
+    #There are more outcomes
+    ci <- MultinomCI(table(de_sample[[1]]),conf.level = conf_level)
+    ci_aux <- matrix(NA, nrow = 2, ncol = 6) #6 possible outcomes of the die
+    for(j in 1:nrow(ci)) {
+      ci_aux[1,as.integer(rownames(ci)[j])] <- ci[j,2]
+      ci_aux[2,as.integer(rownames(ci)[j])] <- ci[j,3]
+    }
+    de_res[2,i] <- paste0("(",paste0(round(ci_aux[1,],2), collapse = ", "),")") #Lower confidence interval
+    de_res[4,i] <- paste0("(",paste0(round(ci_aux[2,],2), collapse = ", "),")")  #Uppter confidence interval
+  }
+  de_res[1,i] <- paste0("(",paste0(round(de$evaluate(p = probs_mat[i,]),2), collapse = ", "),")")
+  de_res[3,i] <- paste0("(",paste0(round(table(de_sample[[1]])/sample_size,2), collapse = ", "),")")
+  de_res[5,i] <- round(mean(de_sample[[2]]),2)
+  de_res[6,i] <- round(mean(de_sample_double_time[[2]]),2)
+}
+pandoc.table(de_res)
+```
+
+
+
+## Example 4 - 2-coin algorithm
+$$
+f(p) = \frac{c_1p_1}{c_1p_1+c_2p_2}, \qquad c_1, c_2 \geq 0
+$$
+When using the substitution $p_i = \frac{q_1}{q_1+q_{i+1}}, \qquad i \in \{1,2,\ldots,m\}$ (tossing all coins to produce an $m+2$ sided die), one gets
+$$
+f_{1}(\boldsymbol{q}) \propto (c_1q_1^2+c_1q_1q_3, c_2q_1^2+c_2q_1q_2)
+$$
+Instead, when substituing using $p_i = \frac{q_i}{1-\sum_{k=1}^{i-1}q_k}, \qquad i \in \{1,2,\ldots,m\}$ (tossing coins until first heads to produce an $m+1$ sided die), one gets
+$$
+f_2(\boldsymbol{q}) \propto (c_1q_1 -c_1q_1^2, c_2q_2)
+$$
+
+```{r 2coin_alg, results='asis'}
+probs_sum <- c(1.9,1.8,1.5,2*2^(-seq(0,8))) #prob_sum = p_1+p_2 (and p_1 = p_2)
+probs_sum <- c(1.8, 1.5, 1, 0.2,0.02,0.002,0.0002) 
+sample_size <- 1000 #Number of tosses
+num_cores <- 2 #Number of cores used (parallel computing is not supported on Windows)
+conf_level <- 0.95 #Confidence interval level
+
+indep_coin_probs <- matrix(NA, ncol = 2, nrow = length(probs_sum))
+for(i in 1:length(probs_sum)) {
+  indep_coin_probs[i,] <- c(probs_sum[i]/2,probs_sum[i]/2)
+}
+const <- matrix(1, nrow = nrow(indep_coin_probs),  ncol=2, byrow = TRUE) #c1 = 1, c2 = 1
+
+toss.all.coins <- function(probs) {
+  return(sapply(probs, function(p) {sample(1:2, size = 1, prob = c(p,1-p))})) #1 or 2 (not 0))
+}
+toss.until.heads <- function(probs) {
+  m <- length(probs)
+  res <- rep(NA, m)
+  for(i in 1:m) {
+    res[i] <- sample(1:2, size = 1, prob = c(probs[i],1-probs[i]))
+    if(res[i] == 1) { break } #Stop loop if heads is obtained
+  }
+  return(res)
+}
+
+ce_2coins_all_tosses_res <- matrix(NA, nrow = 7, ncol = nrow(indep_coin_probs))
+rownames(ce_2coins_all_tosses_res) <- c("q","f(p)", "LowerCI", "Emp.f(p)", "UppCI", "Exp.Tosses", "Exp.Tosses2coinsAlg")
+colnames(ce_2coins_all_tosses_res) <- apply(indep_coin_probs, 1, paste, collapse = ", ")
+ce_2coins_until_heads_res <- matrix(NA, nrow = 7, ncol = nrow(indep_coin_probs)) 
+rownames(ce_2coins_until_heads_res) <- c("q","f(p)", "LowerCI", "Emp.f(p)", "UppCI", "Exp.Tosses", "Exp.Tosses2coinsAlg")
+colnames(ce_2coins_until_heads_res) <- apply(indep_coin_probs, 1, paste, collapse = ", ")
+
+for (i in 1:nrow(indep_coin_probs)) {
+  ce_2coins_allcoins <- CoinsEnterprise$new(list(
+  list(c(const[i,1],const[i,1]), c("2000","1010")),
+  list(c(const[i,2],const[i,2]), c("2000","1100"))
+), toss.coins = toss.all.coins, die_type = "toss_all")
+  ce_2coins_until_heads <- CoinsEnterprise$new(list(
+  list(c(const[i,1],-const[i,1]), c("100","200")),
+  list(c(const[i,2]), c("010"))
+), toss.coins = toss.until.heads, die_type = "first_heads")
+  sample_2coins_allcoins <- ce_2coins_allcoins$sample(n = sample_size, num_cores = num_cores, verbose = TRUE, double_time = FALSE, probs = indep_coin_probs[i,])
+  sample_2coins_untilheads <- ce_2coins_until_heads$sample(n = sample_size, num_cores = num_cores, verbose = TRUE, double_time = FALSE, probs = indep_coin_probs[i,])
+  
+  exp_2coin <- sum(const[i,])/sum(const[i,]*indep_coin_probs[i,])
+  average_tosses_allcoins <- length(indep_coin_probs[i,])*mean(sample_2coins_allcoins[[2]]) #2*number of rolls
+  average_tosses_untilheads <- (indep_coin_probs[i,1]+2*(1-indep_coin_probs[i,1]))*mean(sample_2coins_untilheads[[2]]) #Works only for two coins
+  
+  q_allcoins <- c(prod(indep_coin_probs[i,]), #Works only for three coins
+                  (1-indep_coin_probs[i,1])*indep_coin_probs[i,2],
+                  (1-indep_coin_probs[i,2])*indep_coin_probs[i,1])
+  q_allcoins[4] <- 1-sum(q_allcoins)
+  q_untileheads <- c(indep_coin_probs[i,1],
+                     (1-indep_coin_probs[i,1])*indep_coin_probs[i,2],
+                     (1-indep_coin_probs[i,1])*(1-indep_coin_probs[i,2]))
+  
+  #Fill case all tosses
+  #ce_2coins_all_tosses_res[1,i] <- paste0("(",paste0(q_allcoins, collapse = ", "),")")
+  ce_2coins_all_tosses_res[2,i] <- (const[i,1]*indep_coin_probs[i,1])/sum(const[i,]*indep_coin_probs[i,])
+  ce_2coins_all_tosses_res[4,i] <- 1-mean(sample_2coins_allcoins[[1]]-1)
+  ce_2coins_all_tosses_res[6,i] <- average_tosses_allcoins
+  ce_2coins_all_tosses_res[7,i] <- exp_2coin
+  
+  #Fill case until heads
+  #ce_2coins_until_heads_res[1,i] <- paste0("(",paste0(q_untileheads, collapse = ", "),")")
+  ce_2coins_until_heads_res[2,i] <- (const[i,1]*indep_coin_probs[i,1])/sum(const[i,]*indep_coin_probs[i,])
+  ce_2coins_until_heads_res[4,i] <- 1-mean(sample_2coins_untilheads[[1]]-1)
+  ce_2coins_until_heads_res[6,i] <- average_tosses_untilheads
+  ce_2coins_until_heads_res[7,i] <- exp_2coin
+  
+  #Confidence interval
+  if(length(unique(sample_2coins_allcoins[[1]])) > 1) {
+    #At least one of each result
+    ci_allcoins <- MultinomCI(table(sample_2coins_allcoins[[1]]),conf.level = conf_level)
+    ce_2coins_all_tosses_res[3,i] <- ci_allcoins[1,2]
+    ce_2coins_all_tosses_res[5,i] <- ci_allcoins[1,3]
+  }
+  if(length(unique(sample_2coins_untilheads[[1]])) > 1) {
+    #At least one of each result
+    ci_until_heads <- MultinomCI(table(sample_2coins_untilheads[[1]]),conf.level = conf_level)
+    ce_2coins_until_heads_res[3,i] <- ci_until_heads[1,2]
+    ce_2coins_until_heads_res[5,i] <- ci_until_heads[1,3]
+  }
+}
+
+pandoc.table(ce_2coins_all_tosses_res, round = 2)
+pandoc.table(ce_2coins_until_heads_res, round = 2)
+
+ggplot() + geom_line(aes(x = probs_sum, y = log(ce_2coins_until_heads_res[6,])), color = "red") + geom_point(aes(x = probs_sum, y = log(ce_2coins_until_heads_res[6,])), color = "red")  + 
+  geom_line(aes(x = probs_sum, y = log(ce_2coins_until_heads_res[7,])), color = "blue") + geom_point(aes(x = probs_sum, y = log(ce_2coins_until_heads_res[7,])), color = "blue")
+
+ggplot() + geom_line(aes(x = probs_sum, y = ce_2coins_until_heads_res[7,]/ce_2coins_until_heads_res[6,]), color = "red")
+```
+
+
+```{r bf_tex, eval = FALSE, echo = FALSE}
+bf_tex <- rbind(ce_2coins_all_tosses_res,ce_2coins_until_heads_res)
+bf_tex <- bf_tex[c(2:6,13,7),c(2,3,4,5:ncol(bf_tex))]
+xtable(bf_tex, align = c("l|",rep("c",ncol(bf_tex))))
 ```
 

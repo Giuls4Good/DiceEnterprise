@@ -203,7 +203,9 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
           R_aux[l] <- round(sum(R_list[[i]][which(indices == l)]), digits = 8) #round to avoid machine error
         }
         R_list[[i]] <- R_aux
-        if(any(R_list[[i]] < 0)) {stop("Generated negative coefficient. Are you sure it is a valid function?")}
+        if(any(R_list[[i]] < 0)) {stop("Generated negative coefficient. Are you sure it is a valid function? Check that numerator and
+                                       denominator do not share any common roots. Also, check that they are both positive polynomials
+                                       (in case, switch signs of the coefficients accordingly).")}
         #Remove zero coefficients
         if(any(R_list[[i]] == 0)) { #Need to check or M_list[[i]][numeric(0),] is empty!
           M_list[[i]] <- M_list[[i]][-which(R_list[[i]] == 0),] #NOT GREAT, but it should work cause we rounded up the values of R
@@ -228,12 +230,19 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
 CoinsEnterprise <- R6::R6Class("CoinsEnterprise",
                                inherit = DiceEnterprise,
                                public = list(
-                                 initialize = function(G,toss.coins,die_type = c("toss_all","first_heads"), verbose = FALSE) {
+                                 initialize = function(G,toss.coins,num_coins,die_type = c("uniform","toss_all","first_heads"), verbose = FALSE) {
+                                   private$num_coins <- num_coins
                                    private$die_type <- match.arg(die_type)
                                    private$toss.coins.fun <- toss.coins
                                    super$initialize(G=G,verbose=verbose)
                                  },
                                  roll.die = function(n,...) {
+                                   #If die_type = "uniform"
+                                   #This function constructs an m+1 sided die given m independent coins.
+                                   #It selects uniformly which coin to toss, say the ith, and returns
+                                   #i if the result is heads, and m+1 otherwise.
+                                   #A function f(p) of the probabilities of the independent coins can be converted in this
+                                   #representation by substituing p_i = mq_i
                                    #If die_type = "toss_all"
                                    #This function constructs an m+2 sided die given m independent coins.
                                    #It returns 1 if all the tosses are heads
@@ -248,9 +257,16 @@ CoinsEnterprise <- R6::R6Class("CoinsEnterprise",
                                    #representation by substituting p_i = q_i/(1-sum_{k=1}^{i-1} q_k)
                                    res <- numeric(n)
                                    for(i in 1:n) {
-                                     toss_res <- private$toss.coins.fun(...) #Toss the m coins
-                                     m <- length(toss_res)
-                                     if(private$die_type == "toss_all") {
+                                     if(private$die_type == "uniform") {
+                                       which_coin <- sample(1:private$num_coins, size = 1) #Select which coin to flip
+                                       if(private$toss.coins.fun(which_coin,...) == 1) {
+                                         res[i] <- which_coin
+                                       } else {
+                                         res[i] <- private$num_coins+1
+                                       }
+                                     } else if(private$die_type == "toss_all") {
+                                       toss_res <- private$toss.coins.fun(...) #Toss the coins
+                                       m <- length(toss_res)
                                        if(isTRUE(all.equal(toss_res,rep(1,m)))) {
                                          res[i] <- 1
                                        } else if(length(which(toss_res == 2)) > 1) {
@@ -259,6 +275,8 @@ CoinsEnterprise <- R6::R6Class("CoinsEnterprise",
                                          res[i] <- which(toss_res == 2)+1
                                        }
                                      } else if(private$die_type == "first_heads") {
+                                       toss_res <- private$toss.coins.fun(...) #Toss the coins
+                                       m <- length(toss_res)
                                        if(any(toss_res == 1, na.rm = TRUE)) {
                                          res[i] <- which(toss_res == 1)[1]
                                        } else {
@@ -276,5 +294,6 @@ CoinsEnterprise <- R6::R6Class("CoinsEnterprise",
                                ),
                                private = list(
                                 die_type = NULL,
-                                toss.coins.fun = NULL
+                                toss.coins.fun = NULL,
+                                num_coins = NULL
                                ))

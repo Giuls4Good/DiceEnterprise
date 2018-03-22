@@ -1,3 +1,12 @@
+#' Categorical distributions
+#'
+#' Class to describe cateogrical distributions such as multi-variate ladders.
+#'
+#' @docType class
+#' @return Object of \code{\link{R6Class}} with no methods.
+#' @format \code{\link{R6Class}} object.
+#' @field k number of categories
+#' @field R vector of length \code{k} with the associated probabilities (may not be normalized)
 DiscreteDist <- R6::R6Class("DiscreteDistribution",
   public = list(
     get.k = function() {private$k},
@@ -5,10 +14,64 @@ DiscreteDist <- R6::R6Class("DiscreteDistribution",
   ),
   private = list(
     k = NULL, #Number of categories
-    R = NULL #k long vector of R_i. This are not the associated probabilities, but it is used for disaggregations.
+    R = NULL #k long vector of R_i. These are not the associated probabilities, but it is used for disaggregations.
   )
 )
 
+#' Ladders
+#'
+#' Class to describe both univariate and multivariate ladders.
+#'
+#' @docType class
+#' @return Object of \code{\link{R6Class}} with methods to construct connected and fine ladders as well as sampling from them.
+#' @format \code{\link{R6Class}} object.
+#' @details A multivariate ladder is a categorical distribution where the probability of each outcome is of the form
+#' \deqn{\pi_i(p) = R_i\frac{\prod_{j=1}^m p_j^{n_{i,j}}}{C(p)}}
+#' where \eqn{C(p)} is a polynomial with real coefficients not divisible by any \eqn{p_j},
+#' \eqn{R_i} is a strictly positive constant, \eqn{n_{i,j}} are possibly null positive integers and \eqn{|n_i| = d}.
+#' A ladder is fine if there are no redundant \eqn{n_{i,j}} and it is connected if for any \eqn{\pi_i} there exists
+#' a \eqn{\pi_k} where only one of the \eqn{n_{i,j}} is increased by one and another one is decreased by one.
+#' @examples
+#' Ladder$new(M=matrix(c(0,3,2,1,3,0), ncol = 2, byrow=TRUE),R=c(3,2,sqrt(2)))
+#' @section Methods:
+#' \describe{
+#'   \item{\code{new(M,R)}}{Construct an object of the class \code{Ladder}.
+#'   M is a \eqn{m \times k} matrix describing the powers of \eqn{p_1,p_2,...,p_k} and
+#'   R is a \eqn{k}-long vector of coefficients.}
+#'   \item{\code{print}}{Print information about the ladder, such as if it is a valid/connected/fine ladder.}
+#'   \item{\code{get.connected}}{Return \code{TRUE} if the ladder is connected.}
+#'   \item{\code{update.fun(i,B,U)}}{Update function for the Markov chain. \code{i} is the current state,
+#'   \code{B} is a vector of rolls of the original die, \code{U} is a vector of uniform random variables.}
+#'   \item{\code{update.fun.R(i,B,U)}}{Same as \code{update.fun}, but implemented in R rather than in C++. Generally slower.}
+#'   \item{\code{update.fun.global(i,B,U)}}{Update function for the Markov chain. This update function is defined using
+#'   global properties of the chain. Albeit being valid, it leads to a slow CFTP implementation and it is thus deprecated.
+#'   Use \code{update.fun} instead.}
+#'   \item{\code{update.fun.slow(i,B,U)}}{Update function for the Markov chain. Albeit being valid, it's a slower
+#'   implementation than \code{update.fun.R} and \code{update.fun} and it is thus deprecated. Use \code{update.fun} instead.}
+#'   \item{\code{sample(n,roll.fun,true_p=NULL,num_cores=1,verbose=FALSE,global=FALSE,double_time=FALSE,...)}}{Get a sample from a
+#'   fine and connected ladder via Coupling From The Past (see \code{CFTP}).
+#'   \code{n} is required size of the sample, \code{roll.fun} is a user defined R function that rolls the original die (optional parameters
+#'   can be passed). Instead of \code{roll.fun}, the user can defined a fixed value of probabilites of the original die via \code{true_p} for
+#'   debug purposes. \code{num_cores} sets the numbers of cores used (supported only on Linux and Mac OS). If \code{verbose = TRUE} a list is
+#'   returned where the first element is the sample and the second element are the rolls required to get such sample. When
+#'   \code{global = TRUE}, \code{update.fun.global} is used instead of \code{update.fun}, leading to a valid but slower implementation and should not
+#'   be used. When \code{double_time = TRUE} at each iteration of the CFTP algorithm, time is doubled instead of increased by 1 leading
+#'   to a slower implementation if rolling the die is costly.}
+#'   \item{\code{evalute(p)}}{Evaluate the ladder when the true probability of the original die is given. Useful for debug purposes.}
+#'   \item{\code{impose.fineness}}{Returns a list where the first object is a new fine ladder and the second object is
+#'   a vector that can be used to transform a sample from the new ladder in a sample from the original one. If the original ladder is
+#'   connected, so it is the new one. See \code{disaggregation.sample}.}
+#'   \item{\code{impose.connected}}{Returns a list where the first object is a new connected ladder and the second object is
+#'   a vector that can be used to transform a sample from the new ladder in a sample from the original one. See \code{disaggregation.sample}.}
+#'   \item{\code{get.a}}{Returns the global constant \eqn{a} used to define \code{update.fun.global}. Useful for debug purposes.}
+#'   \item{\code{get.P}}{Returns the transition matrix of the chain. Contains only the coefficients and not the values of the \eqn{p_i}s.}
+#'   \item{\code{get.P.moves}}{Returna a \eqn{k \timex k} matrix, where \eqn{k} is the number of states, describing which roll is necessary
+#'   for the chain to move from state \eqn{i} to \eqn{j}.}
+#'   \item{\code{get.P.cumsum}}{For internal use. Returns a a doubled indexed list.
+#'   The first index is the current state, the second is the current roll. Returns the cumulative sum of the coefficients.}
+#'   \item{\code{get.P.moves.list}}{For internal use. Returns a a doubled indexed list.
+#'   The first index is the current state, the second is the current roll. Returns the index of the possible moves.}
+#'   }
 Ladder <- R6::R6Class("Ladder",
   inherit = DiscreteDist,
   public = list(
@@ -54,7 +117,7 @@ Ladder <- R6::R6Class("Ladder",
       }
       return(currentState)
     },
-    update.fun = function(i,B,U) {
+    update.fun.R = function(i,B,U) { #This is an R version of the C++ code of update.fun
       #Update function for the ladder using local moves (more efficient than the global bersion)
       stopifnot(private$connected, private$fine, length(B)==length(U))
       currentState <- i
@@ -73,6 +136,10 @@ Ladder <- R6::R6Class("Ladder",
         }
       }
       return(currentState)
+    },
+    update.fun = function(i,B,U) {
+      return(updateFunCpp(currentState = i,B = B,U = U, connected = private$connected, fine = private$fine,
+                          P_cumsum = private$P_cumsum, P_moves_list = private$P_moves_list))
     },
     update.fun.slow = function(i,B,U) {
       #Update function for the ladder using local moves (more efficient than the global bersion)
@@ -99,7 +166,7 @@ Ladder <- R6::R6Class("Ladder",
     sample = function(n,roll.fun = NULL, true_p = NULL, num_cores = 1, verbose = FALSE, global = FALSE, double_time = FALSE,...) {
       #Get a sample from the ladder using CFTP
       #If global = TRUE, uses a different update function that makes use of a global constant -> less efficient!
-      if(is.null(roll.fun) && is.null(true_p)) {stop("Either declare roll.fun or the trye probabilities.")}
+      if(is.null(roll.fun) && is.null(true_p)) {stop("Either declare roll.fun or the true probabilities.")}
       if(is.null(roll.fun)) {
         stopifnot(isTRUE(all.equal(1,sum(true_p))))
         roll.fun <- function(n) {sample(1:private$m, size = n, replace = TRUE, prob = true_p)}
@@ -111,13 +178,16 @@ Ladder <- R6::R6Class("Ladder",
       }
       res <- mclapply(1:n, function(i) {
         if(global) {
-          CFTP(k = private$k, roll.fun = roll.fun, update.fun = self$update.fun.global,
-               monotonic = monotonic_CFTP, min = 1, max = private$k,verbose=verbose, double_time = double_time,...) #min, max are used only in monotonic case, otherwise they are ignored
+          stop("global is not supported anymore as it is less efficient. Use global = FALSE")
+          #CFTP(k = private$k, roll.fun = roll.fun, update.fun = self$update.fun.global,
+          #     monotonic = monotonic_CFTP, min = 1, max = private$k,verbose=verbose, double_time = double_time,...) #min, max are used only in monotonic case, otherwise they are ignored
         } else {
           CFTP(k = private$k, roll.fun = roll.fun, update.fun = self$update.fun,
                monotonic = monotonic_CFTP, min = 1, max = private$k,verbose=verbose, double_time = double_time,...) #min, max are used only in monotonic case, otherwise they are ignored
         }
       }, mc.cores = num_cores)
+
+
 
       if(verbose) {
         return(list(unlist(lapply(res, function(x) {x[[1]]})), exp_rolls = (unlist(lapply(res, function(x) {x[[2]]})))))
@@ -184,7 +254,9 @@ Ladder <- R6::R6Class("Ladder",
     },
     get.a = function() {private$a},
     get.P = function()  {private$P},
-    get.P.moves = function() {private$P_moves}
+    get.P.moves = function() {private$P_moves},
+    get.P.cumsum = function() {private$P_cumsum},
+    get.P.moves.list = function() {private$P_moves_list}
   ),
   private = list(
     #FIELDS

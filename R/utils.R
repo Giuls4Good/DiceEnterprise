@@ -1,7 +1,15 @@
+#' Integer number
+#'
+#' Check if a number is integer
+#'
+#' @param x number to be checked
+#' @param tol tolerance desired
+#' @return \code{TRUE} if the number is integer within the defined tolerance.
 is.wholenumber <-  function(x, tol = .Machine$double.eps^0.5)  {
   return(abs(x - round(x)) < tol)
 }
 
+#' Discrete simplex
 rsimplex <- function(n, m) {
   res <- matrix(NA, nrow = n, ncol = m)
   for(i in 1:n) {

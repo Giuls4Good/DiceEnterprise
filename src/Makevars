@@ -1,0 +1,4 @@
+CXX = g++-4.8.1
+#PKG_CXXFLAGS = -std=c++11 -O3 -march=native
+PKG_CXXFLAGS = -Wall -std=c++11 -O3 -ffast-math -fno-finite-math-only -march=native
+PKG_LIBS = $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)

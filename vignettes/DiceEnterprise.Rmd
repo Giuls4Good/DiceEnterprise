@@ -77,7 +77,9 @@ The method `evaluate` allows to evaluate the value of $f(p)$ for a given $p$.
 ```{r bf_evaluate}
 print(bf$evaluate(3/4))
 ```
-Also the method `sample` allows to set the option `verbose = TRUE`. In this case the output of `sample` is a list where the first argument is the obtained sample and the second argument is a vector containing the number of rolls required. The same method allows to specify the number of cores used (default 1). Notice that multicore is not supported on Windows. The method `sample` takes also `double_time` as an input. If `double_time = FALSE` (default), the time step of CFTP is increased by one at each iteration leading, otherwise it is doubled.
+
+
+When a sample is requested, Coupling From the Past is used. Notice that in the Bernoulli Factory case (or more in general when the given die has only 2 faces), a monotonic implementation is used. The method `sample` allows to set the option `verbose = TRUE`. In this case the output of `sample` is a list where the first argument is the obtained sample and the second argument is a vector containing the number of rolls required. The same method allows to specify the number of cores used (default 1). Notice that multicore is not supported on Windows. The method `sample` takes also `double_time` as an input. If `double_time = FALSE` (default), the time step of CFTP is increased by one at each iteration leading, otherwise it is doubled.
 ```{r bf_toss_2}
 fp_tosses <- bf$sample(n = 1000, roll.fun = toss_coin, num_cores = 2, verbose = TRUE, double_time= TRUE) #Produces 1000 tosses of the f(p)-coin, using 2 cores and doubling the time step at each iteration of CFTP.
 print(table(fp_tosses[[1]])/1000) #Empirical probabilities. Notice that the theoretical ones are given by print(bf$evaluate(3/4))
@@ -92,6 +94,57 @@ Notice that the package supports only functions defined from $(0,1)$ to $[0,1]$ 
 ```{r bf_error, error=TRUE}
 bf_amp <- BernoulliFactory$new(f_1 = list(2,1), f_2 = list(c(1,-2),c(0,1)))
 ```
+
+### Example: Logistic Bernoulli Factory
+
+Consider the function as in Huber
+$$
+f(p) = \frac{Cp}{1+Cp}
+$$
+Huber proposes a very clever algorithm that makes use of a thinned Poisson point process and requires on average $C/(1+Cp)$ tosses. If my calculations are correct, the Dice Enterprise can construct a Bernoulli Factory that albeit being always worse, requires at most one extra toss on average. Let's check this:
+
+```{r bf_logistic}
+toss.coin.logistic <- function(n,p) {
+  sample(1:2, size = n, replace = TRUE, prob = c(p,1-p))
+}
+C <- 10
+p <- 0.01
+size_sample <- 10000
+
+bf_logistic <- BernoulliFactory$new(f_1 = list(C,1), f_2 = list(1,0))
+res <- bf_logistic$sample(n = size_sample, roll.fun = toss.coin.logistic, num_cores = 2, verbose = TRUE, p=p)
+
+mean_Huber <- C/(1+C*p)
+print(mean_Huber) #Mean of Huber Algorithm
+print((1+C)/(1+C*p))  #Mean of Dice Enterprise
+print(mean(res[[2]]))
+
+#CHECK IF IT IS CORRECT
+table(res[[1]])/size_sample
+print(c(C*p/(1+C*p), 1/(1+C*p)))
+
+
+```
+```{r bf_Huber_A, echo=FALSE,eval=FALSE}
+#Algorithm A of Huber for function 
+#f(p) = Cp(1-(Cp)^(m-1))/(1-(Cp)^m) where m=5
+m <- 5
+bf_A <- BernoulliFactory$new(f_1 = list(coeff = 10^seq(m,2), power = seq(m-1,1)),
+                             f_2 = list(coeff = c(10), power = c(0)))
+
+size_sample <- 10000
+res_A <- bf_A$sample(n = size_sample, roll.fun = toss.coin.logistic, num_cores = 2, verbose = TRUE, p=p)
+
+mean_Huber_A <- C*(m-1)
+print(mean_Huber_A) #Mean of Huber Algorithm
+print(mean(res_A[[2]])) #Empirical mean of dice enterprise
+
+
+#Check correctness
+table(res_A[[1]])/size_sample
+print(bf_A$evaluate(p))
+```
+
 
 ## Dice Enterprise
 The procedure is similar to the previous. Assume that the given function $f(\boldsymbol{p}): \Delta^m \rightarrow \Delta^v$ is 
@@ -218,13 +271,13 @@ f_indep_coins1 <- list(
 The package provides a class `CoinsEnterprise` to deal with this class of problems and automatically define the corresponding die. In particular, when an object of such class is initialized the argument `die_type` specifies which type of construction is considered. For scenario 1 this corresponds to `die_type = "toss_all"`.
 
 ```{r ce_toss_all_initialize}
-ce1 <- CoinsEnterprise$new(f_indep_coins1, toss.coins = toss.all.coins, die_type = "toss_all")
+ce1 <- CoinsEnterprise$new(f_indep_coins1, toss.coins = toss.all.coins, num_coins = 3, die_type = "toss_all")
 ```
 
 Getting a sample from the newly create die is done analogously as before. Notice that the number of rolls does not correspond to the number of tosses of the coins. In particular, the number of tosses is obtained by multiplying the number of rolls by $m = 3$.
 ```{r ce_toss_all_sample}
 indep_coins_probs <- c(0.4,0.7,0.55)
-result <- ce1$sample(n = 1000, num_cores = 2, verbose = TRUE,  double_time = TRUE, probs = indep_coins_probs) #the argument probs is passed to toss.coins
+result <- ce1$sample(n = 1000, num_cores = 2, verbose = TRUE,  double_time = FALSE, probs = indep_coins_probs) #the argument probs is passed to toss.coins
 print(table(result[[1]])/1000) #Empirical probabilities. Notice that the theoretical ones are given by
 print(indep_coins_probs/sum(indep_coins_probs))
 print(paste0("Average number of rolls required: ", mean(result[[2]])))
@@ -284,12 +337,12 @@ f_indep_coins2 <- list(
 In this case, an object of the class `CoinsEnterprise` must be initialized with argument `die_type = "first_heads"`.
 
 ```{r ce_toss_until_heads_initialize}
-ce2 <- CoinsEnterprise$new(f_indep_coins2, toss.coins = toss.until.heads, die_type = "first_heads")
+ce2 <- CoinsEnterprise$new(f_indep_coins2, toss.coins = toss.until.heads, num_coins = 3, die_type = "first_heads")
 ```
 
 Getting a sample from the newly create die is done analogously as before. Notice that the number of rolls does not correspond to the number of tosses of the coins. In particular, the number of tosses is obtained by multiplying the number of rolls by the expected number of tosses of the function `toss.until.heads`. In this case, it is given by $p_1+2(1-p_1)p_2+3(1-p_1)(1-p_2) = 1.78$.
 ```{r ce_toss_until_heads_sample}
-result <- ce2$sample(n = 1000, num_cores = 2, verbose = TRUE, double_time = TRUE, probs = indep_coins_probs) #the argument probs is passed to toss.coins
+result <- ce2$sample(n = 1000, num_cores = 2, verbose = TRUE, double_time = FALSE, probs = indep_coins_probs) #the argument probs is passed to toss.coins
 print(table(result[[1]])/1000) #Empirical probabilities. Notice that the theoretical ones are given by
 print(indep_coins_probs/sum(indep_coins_probs))
 print(paste0("Average number of rolls required: ", mean(result[[2]])))
@@ -300,4 +353,90 @@ print(paste0("Average number of tosses required: ", (indep_coins_probs[1]+
 plot.confidence.interval(result[[1]],indep_coins_probs/sum(indep_coins_probs))
 
 ```
+
+### Scenario 3: uniformly
+
+Consider constructing an $(m+1)$-sided die with the following probabilities of rolling $\{1,\ldots,m\}$.
+\begin{align*}
+q_1 &= \frac{1}{m}p_1 \\
+q_2 &= \frac{1}{m}p_2 \\
+&\ldots \\
+q_m &= \frac{1}{m}p_m \\
+q_{m+1} &= 1-\frac{1}{m}\sum_{i=1}^m p_i \\
+\end{align*}
+To roll such die it is just sufficient to select uniformly at random a coin $i$ to toss. If it lands heads, then $i$ is returned, otherwise $m+1$ is returned. Given a function $f(\boldsymbol{p}):(0,1)^m \rightarrow \Delta^v$ of the independent coins, it is straightforward to construct a function $f(\boldsymbol{q}): \Delta^{m+1} \rightarrow \Delta^v$ of the new constructe die by substituting:
+$$
+p_i = mq_i, \qquad i \in \{1,2,\ldots,m\}
+$$
+The user needs to define a function that takes as input which coin has to be tossed and return $1$ if the coin lands heads.
+```{r ce_unif_toss}
+toss.coins.single <- function(which_coin, probs) {
+  return(sample(c(1,2), size = 1, prob = c(probs[which_coin], 1-probs[which_coin])))
+}
+```
+The function $f(\boldsymbol{p})$ previously described can be expresses as a function of the transformed variables simply as
+$$
+f(\boldsymbol{q}) = \frac{1}{q_1+q_2+q_3}(q_1,q_2,q_3)
+$$
+As before, the user needs to define three polynomials as a list of coefficients and powers. Notice that there are $4$ faces of the new die, and not three.
+
+```{r ce_unif_poly}
+f_indep_coins3 <- list(
+  list(1, "1000"),
+  list(1, "0100"),
+  list(1, "0010")
+)
+```
+
+In this case, an object of the class `CoinsEnterprise` must be initialized with argument `die_type = "uniform"`.
+
+```{r ce_unif_def}
+ce3 <- CoinsEnterprise$new(f_indep_coins3, toss.coins = toss.coins.single, num_coins = 3, die_type = "uniform")
+```
+
+Getting a sample from the newly create die is analogous as before. In this case the number of rolls is equal to number of tosses of the coins.
+
+```{r ce_unif_sample}
+result <- ce3$sample(n = 1000, num_cores = 2, verbose = TRUE, double_time = FALSE, probs = indep_coins_probs) #the argument probs is passed to toss.coins.single
+print(table(result[[1]])/1000) #Empirical probabilities. Notice that the theoretical ones are given by
+print(indep_coins_probs/sum(indep_coins_probs))
+print(paste0("Average number of tosses required: ", mean(result[[2]])))
+plot.confidence.interval(result[[1]],indep_coins_probs/sum(indep_coins_probs))
+```
+
+```{r eliminiami, eval=FALSE,echo=FALSE}
+roll.uniform <- function(n,probs_coins,probs_unif = rep(1,length(probs_coins))) {
+  m <- length(probs_coins)
+  res <- numeric(n)
+  for(k in 1:n) {
+  i <- sample(1:m, size = 1, prob = probs_unif)
+  res[k] <- (sample(c(i,m+1), size = 1, prob = c(probs_coins[i],1-probs_coins[i])))
+  }
+  return(res)
+}
+
+indep_coins_probs <- seq(0.01,0.09,by=0.005)
+f_unif <- vector("list", length = length(indep_coins_probs))
+for(i in 1:length(indep_coins_probs)) {
+  zeros <- rep(0, length(indep_coins_probs)+1)
+  zeros[i] <- 1
+  f_unif[[i]] <- list(c(1), paste0(zeros,collapse=""))
+}
+
+de_uniform <- DiceEnterprise$new(f_unif)
+
+size_sample <- 10000
+sample_coins_uniform <- de_uniform$sample(n = size_sample, roll.fun = roll.uniform, probs_coins = indep_coins_probs, verbose = TRUE)
+table(sample_coins_uniform[[1]])/size_sample
+mean(sample_coins_uniform[[2]])
+length(indep_coins_probs)/sum(indep_coins_probs)
+```
+
+
+
+
+
+
+
+
 
