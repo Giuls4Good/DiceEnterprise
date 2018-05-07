@@ -27,7 +27,7 @@ set.seed(10, "L'Ecuyer-CMRG")
 
 The `DiceEnterprise` package provides an automatic way to construct a Bernoulli Factory/Dice Enterprise algorithm for rational functions between simplices $f: \Delta^m \rightarrow \Delta^v$. That is, given an $m$-sided die, a $v$ sided-one is produced where the probability of each of the $v$ faces is a rational function. More formally, $f(\boldsymbol{p})$ is of the following form:
 $$
-f(\boldsymbol{p}) = f(p_1,\ldots,p_m) = \frac{1}{C(\boldsymbol{p})}\left(G_1(\boldsymbol{p},\ldots,G_v(\boldsymbol{p})\right)
+f(\boldsymbol{p}) = f(p_1,\ldots,p_m) = \frac{1}{C(\boldsymbol{p})}\left(G_1(\boldsymbol{p}),\ldots,G_v(\boldsymbol{p})\right)
 $$
 where each $G_i(\boldsymbol{p})$ and $C(\boldsymbol{p})$ are polynomials with real coefficients. 
 

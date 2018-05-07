@@ -208,7 +208,7 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
                                        (in case, switch signs of the coefficients accordingly).")}
         #Remove zero coefficients
         if(any(R_list[[i]] == 0)) { #Need to check or M_list[[i]][numeric(0),] is empty!
-          M_list[[i]] <- M_list[[i]][-which(R_list[[i]] == 0),] #NOT GREAT, but it should work cause we rounded up the values of R
+          M_list[[i]] <- matrix(M_list[[i]][-which(R_list[[i]] == 0),], ncol = ncol(M_list[[i]]), byrow = FALSE) #NOT GREAT, but it should work cause we rounded up the values of R
           R_list[[i]] <- R_list[[i]][-which(R_list[[i]] == 0)]
         }
         M_rows <- M_rows + nrow(M_list[[i]])
