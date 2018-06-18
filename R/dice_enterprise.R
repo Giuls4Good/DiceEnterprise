@@ -43,28 +43,31 @@ BernoulliFactory <- R6::R6Class("BernoulliFactory",
 
 DiceEnterprise <- R6::R6Class("DiceEnterprise",
   public = list(
-    initialize = function(G, verbose = FALSE) {
+    initialize = function(G, d = NULL, verbose = FALSE) {
       #G is a list of lists (G_1,G_2,...,G_v). Each list must contain two element:
       #1) a vector of coefficients (can not be null)
       #2) a matrix of powers of p_1p_2...p_m OR a vector of strings [THIS CAN WORK ONLY FOR POWER UP TO 9!].
       #for instance p_1^2p_2,p_1p_3^3 becomes either M = [2,1,0;1,0,3] or ("210","103")
+      private$G_orig <- G
       if(verbose) {cat("Converting polynomials in internal representation...")}
       private$generate.G_poly(G) #Generate a list containing the polynomials
       if(verbose) {cat("DONE! \nGenerating initial ladder...")}
       private$generate.ladder_initial() #Generate the initial ladder
       if(verbose) {cat("DONE! \nConstructing a connected ladder...")}
-      aux <- private$ladder_initial$impose.connected()
+      aux <- private$ladder_initial$impose.connected(increase_degree = d)
       private$ladder_connected <- aux[["obj"]]
       private$A_initial_connected <- aux[["A"]]
       if(verbose) {cat("DONE! \nConstructing a fine and connected ladder...")}
       aux <- private$ladder_connected$impose.fineness()
       private$ladder_fine_connected <- aux[["obj"]]
       private$A_fine_connected <- aux[["A"]]
+      private$check.efficiency.condition() #Check if efficiency condition is satisfied
       if(verbose) {cat("DONE! \n")}
     },
     print = function() {
       cat("Original function: Delta^",private$m," -> Delta^",private$v,"\n",sep = "")
       cat("Fine and connected ladder: Delta^",private$m," -> Delta^",private$ladder_fine_connected$get.k(),"\n", sep="")
+      cat("Efficiency condition is satisfied: ",private$efficiency_condition,"\n", sep ="")
     },
     evaluate = function(p) {
       #This function evaluates the polynomials given fixed probabilites.
@@ -117,13 +120,88 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
     },
     get.G.poly = function() {private$G_poly},
     get.ladder.initial = function() {private$ladder_initial$clone()},
-    get.ladder.fine.connected = function() {private$ladder_fine_connected$clone()}
+    get.ladder.fine.connected = function() {private$ladder_fine_connected$clone()},
+    get.efficiency.condition = function() {private$efficiency_condition},
+    expected.tosses.bound = function(true_p,threshold = 1e6) {
+      #This method computed the expected tosses required by CFTP for a given p.
+      #Works only when m = 2.
+      #true_p = (p,1-p)
+      if(private$m > 2) {
+        stop("The expected number of tosses is computable only when the original die has 2 faces.")
+      }
+      stopifnot(is.numeric(true_p), length(true_p) == private$m, isTRUE(all.equal(1,sum(true_p))))
+      #The expected number of tosses is computed by using a telescopic sum
+      #E[D_t^(1,k)] = sum E[D_t^(n,n+1)]
+      #where E[D_t^(i,j)] is the expected distance at time between two coupled
+      #particles started at i and j.
+      #We then use Markov property to compute the distance at time t+1 given the
+      #expected distance at time t.
+      p <- true_p[1]
+      k <- private$ladder_fine_connected$get.k()
+      R <- private$ladder_fine_connected$get.R()
+      exp_dist_old <- rep(1,k-1) #Distances between particles at time 0
+      exp_dist_new <- exp_dist_old #Initialization
+      t <- 1
+      while(TRUE) {
+        if(t > threshold) { #If t gets greater than 10^6, we just interrupt
+          t <- Inf
+          warning(paste0("Time required is over threshold (",threshold,")"))
+          break
+        } else if(sum(exp_dist_new) < exp(-1)) { #The expected distance is smaller than 1,
+          #so coalescence has occured
+          break
+        }
+        #Compute the expected distance at time t given the distances at previous time
+        for(i in 1:(k-1)) {
+          #Notice that some of the following may be NA/NULL/0/weird
+          #as we exceed the entries of R
+          a <- R[i+1]/max(R[i],R[i+1])
+          b <- R[i-1]/max(R[i-1],R[i])
+          c <- R[i+2]/max(R[i+1],R[i+2])
+          d <- R[i]/max(R[i],R[i+1])
+          if(i == 1 && i+1 == k) { #There are only two states
+            b <- NA; c <- NA;
+          } else if(i == 1) {
+            b <- NA;
+          } else if(i == k-1) {
+            c <- NA;
+          }
+          #Compute the expected distance at time t between particles started at i and i+1
+          exp_dist_new[i] <- 0
+          if(!is.na(c) && !is.na(a) && i+1 < k) {
+            exp_dist_new[i] <- exp_dist_new[i] + max((c-a)*p*(exp_dist_old[i]+exp_dist_old[i+1]),0)
+          }
+          if(!is.na(b) && !is.na(d) && i-1 >= 1) {
+            exp_dist_new[i] <- exp_dist_new[i] + max((b-d)*(1-p)*(exp_dist_old[i-1]+exp_dist_old[i]),0)
+          }
+          if(i+1 < k) {
+            exp_dist_new[i] <- exp_dist_new[i] + min(a,c,na.rm = TRUE)*p*exp_dist_old[i+1]
+          }
+          if(i-1 >= 1) {
+            exp_dist_new[i] <- exp_dist_new[i] + min(b,d,na.rm = TRUE)*(1-p)*exp_dist_old[i-1]
+          }
+          exp_dist_new[i] <- exp_dist_new[i] + min(1-a,1-c,na.rm = TRUE)*p*exp_dist_old[i] +
+            min(1-b,1-d,na.rm = TRUE)*(1-p)*exp_dist_old[i]
+        }
+        exp_dist_old <- exp_dist_new #Update
+        t <- t+1
+      }
+      return(19.2*t)
+    },
+    increase.degree = function(d = 1,verbose=FALSE) {
+      #We increase the degree of the dice enterprise by just applying the
+      #multinomial theorem and create a new Dice Enterprise
+      increase_degree <- private$ladder_fine_connected$get.degree() - private$ladder_initial$get.degree() + d
+      incresed_de <- DiceEnterprise$new(private$G_orig,d=increase_degree,verbose = verbose)
+      return(incresed_de)
+    }
   ),
   private = list(
     m = NA, #faces of the given die
     v = NA, #faces of the returned die
     d = NA, #degree of the polynomial
-    n_coeff = NA, #number of different terms in all the polynomials
+    n_coeff = NA, #number of different terms in all the polynomials,
+    G_orig = NULL, #f(p) as defined by the user. Still need to be converted in internal representation (see G_poly)
     G_poly = NULL, #polynomials
     ladder_initial = NULL, #Initial ladder obtained from the rational function
     ladder_connected = NULL, #Imposing connected condition
@@ -131,6 +209,7 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
     A_f_initial = NULL, #Disaggregation of f into initial ladder
     A_initial_connected = NULL, #Disaggregation of initial ladder in a connected one
     A_fine_connected = NULL, #Disagreggation of fine&connected ladder in a connected ladder
+    efficiency_condition = NA, #Efficiency of the dice enterprise. If TRUE the expected time for coalescence is bounded exponentially in time for every p. Available only for fine and connected.
     generate.G_poly = function(G) {
       stopifnot(is.list(G),
                 is.list(G[[1]]))
@@ -223,6 +302,34 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
       #Remove zero coefficients
 
       private$ladder_initial <- Ladder$new(M = M_new, R=R_new)
+    },
+    check.efficiency.condition = function() {
+      #This method checks if an efficiency condition is satisfied,
+      #that is if the expected number of tosses is bounded exponentially
+      #in time
+      if(private$m == 2) {
+        private$efficiency_condition <- TRUE
+        R <- private$ladder_fine_connected$get.R()
+        M <- private$ladder_fine_connected$get.M() #matrix of coefficients
+        R <- R[order(private$ladder_fine_connected$get.M()[,1]+1)]  #Reorder the coefficients in the right order starting from power 0 to power k-1
+        k <- private$ladder_fine_connected$get.k()
+        for(i in 1:k) {
+          if(i+2 <= k) {
+            if(R[i+1]/max(R[i],R[i+1]) < R[i+2]/max(R[i+1],R[i+2])) {
+              private$efficiency_condition <- FALSE
+              break
+            }
+          }
+          if(i-1 >= 1 && i+1 <= k) {
+            if(R[i]/max(R[i],R[i+1]) < R[i-1]/max(R[i-1],R[i])) {
+              private$efficiency_condition <- FALSE
+              break
+            }
+          }
+        }
+      } else { #Not supported for now in the not monotonic case
+        #TO BE STUDIED AND FILLED
+      }
     }
   )
 )
@@ -230,11 +337,11 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
 CoinsEnterprise <- R6::R6Class("CoinsEnterprise",
                                inherit = DiceEnterprise,
                                public = list(
-                                 initialize = function(G,toss.coins,num_coins,die_type = c("uniform","toss_all","first_heads"), verbose = FALSE) {
+                                 initialize = function(G,toss.coins,num_coins,die_type = c("uniform","toss_all","first_heads"), d = NULL, verbose = FALSE) {
                                    private$num_coins <- num_coins
                                    private$die_type <- match.arg(die_type)
                                    private$toss.coins.fun <- toss.coins
-                                   super$initialize(G=G,verbose=verbose)
+                                   super$initialize(G=G,d=d,verbose=verbose)
                                  },
                                  roll.die = function(n,...) {
                                    #If die_type = "uniform"
@@ -290,6 +397,13 @@ CoinsEnterprise <- R6::R6Class("CoinsEnterprise",
                                  },
                                  sample = function(n, num_cores = 1, verbose = FALSE, global = FALSE, double_time = FALSE,...) {
                                    super$sample(n=n,roll.fun = self$roll.die, num_cores = num_cores, verbose = verbose, global = global,double_time = double_time,...)
+                                 },
+                                 increase.degree = function(d = 1,verbose=FALSE) {
+                                   increase_degree <- private$ladder_fine_connected$get.degree() - private$ladder_initial$get.degree() + d
+                                   incresed_de <- CoinsEnterprise$new(private$G_orig,private$toss.coins.fun,
+                                                                      private$num_coins, private$die_type,
+                                                                      d=increase_degree,verbose = verbose)
+                                   return(incresed_de)
                                  }
                                ),
                                private = list(

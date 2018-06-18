@@ -89,6 +89,10 @@ Ladder <- R6::R6Class("Ladder",
         private$is.connected() #Check connected
         private$compute.constant() #Compute constant a
         private$compute.transition.matrix() #Compute transition matrix for the update function
+        if(private$m == 2){ #Save minimum and maximum states
+          private$min_state <- which.min(private$M[,1])
+          private$max_state <- which.max(private$M[,1])
+        }
       } else {
         stop("The ladder is not valid.")
       }
@@ -163,6 +167,22 @@ Ladder <- R6::R6Class("Ladder",
       }
       return(currentState)
     },
+    debug.update.fun = function(reps,time_span,roll.fun = NULL, true_p = NULL) {
+      #This is useful to check if the update function works correctly (just for debug purposes)
+      #We just track the chain forward for n steps and then we see if it is close
+      #to the stationary distribution
+      if(is.null(roll.fun) && is.null(true_p)) {stop("Either declare roll.fun or the true probabilities.")}
+      if(is.null(roll.fun)) {
+        stopifnot(isTRUE(all.equal(1,sum(true_p))))
+        cat("True equilibrium: ",self$evaluate(true_p),"\n")
+        roll.fun <- function(n) {sample(1:private$m, size = n, replace = TRUE, prob = true_p)}
+      }
+      res <- numeric(reps)
+      for(i in 1:reps) {
+        res[i] <- self$update.fun(1,roll.fun(time_span),runif(time_span))
+      }
+      cat("Empirical equilibrium: ",table(res)/reps,"\n")
+    },
     sample = function(n,roll.fun = NULL, true_p = NULL, num_cores = 1, verbose = FALSE, global = FALSE, double_time = FALSE,...) {
       #Get a sample from the ladder using CFTP
       #If global = TRUE, uses a different update function that makes use of a global constant -> less efficient!
@@ -180,14 +200,12 @@ Ladder <- R6::R6Class("Ladder",
         if(global) {
           stop("global is not supported anymore as it is less efficient. Use global = FALSE")
           #CFTP(k = private$k, roll.fun = roll.fun, update.fun = self$update.fun.global,
-          #     monotonic = monotonic_CFTP, min = 1, max = private$k,verbose=verbose, double_time = double_time,...) #min, max are used only in monotonic case, otherwise they are ignored
+          #     monotonic = monotonic_CFTP, min = private$min_state, max = private$max_state,verbose=verbose, double_time = double_time,...) #min, max are used only in monotonic case, otherwise they are ignored
         } else {
           CFTP(k = private$k, roll.fun = roll.fun, update.fun = self$update.fun,
-               monotonic = monotonic_CFTP, min = 1, max = private$k,verbose=verbose, double_time = double_time,...) #min, max are used only in monotonic case, otherwise they are ignored
+               monotonic = monotonic_CFTP, min = private$min_state, max = private$max_state,verbose=verbose, double_time = double_time,...) #min, max are used only in monotonic case, otherwise they are ignored
         }
       }, mc.cores = num_cores)
-
-
 
       if(verbose) {
         return(list(unlist(lapply(res, function(x) {x[[1]]})), exp_rolls = (unlist(lapply(res, function(x) {x[[2]]})))))
@@ -196,7 +214,7 @@ Ladder <- R6::R6Class("Ladder",
       }
 
     },
-    evalute = function(p) {
+    evaluate = function(p) {
       #Return the values of the ladder for a fixed
       #vector of probabilities of rolling each face
       stopifnot(is.numeric(p), length(p) == private$m, isTRUE(all.equal(1,sum(p))))
@@ -205,6 +223,24 @@ Ladder <- R6::R6Class("Ladder",
         aux[i] <- prod(p^private$M[i,])*private$R[i]
       }
       return(aux/sum(aux))
+    },
+    increase.degree = function(d = 1) {
+      #d = of how many degrees the ladder has to be increased
+      if(!is.wholenumber(d) || d < 1) {
+        stop("d must be an integer greater than 1.")
+      }
+      discrete_simplex <- discrete.simplex(d=d,m=private$m) #all possible combinations
+      new_M_list <- vector("list", private$k)
+      for(i in 1:private$k) {
+        new_M_list[[i]] <- data.frame(t(apply(discrete_simplex, 1, function(vec) {vec+private$M[i,]})))
+      }
+      #Construct a ladder with the new M
+      new_M <- as.matrix(rbindlist(new_M_list))
+      #Compute the new vector R
+      discrete_simplex_binomial <- as.numeric(apply(discrete_simplex,1,function(vec) {multinomial.coeff(d=d,n=vec)}))
+      new_R <- rep(private$R, each=length(discrete_simplex_binomial))*discrete_simplex_binomial
+      A <- split(1:nrow(new_M), rep(1:private$k, each=length(discrete_simplex_binomial)))
+      return(list(obj = Ladder$new(M=new_M, R=new_R), A=A))
     },
     impose.fineness = function() {
       if(private$fine) {
@@ -225,29 +261,28 @@ Ladder <- R6::R6Class("Ladder",
       }
       return(list(obj = Ladder$new(M = new_M, R = new_R), A = A))
     },
-    impose.connected = function() {
-      if(!is.na(private$connected) && private$connected)  {
+    impose.connected = function(increase_degree=NULL) {
+      if(!is.na(private$connected) && private$connected && is.null(increase_degree))  {
         return(list(obj = self$clone(), A = lapply(1:private$k, function(i) {i}))) #The ladder is already connected -> returns a copy of it
       }
       #We extend 1 degree at the time until the ladder is connected.
       #NOT EFFICIENT: we could precompute the minimum degree necessary
       #to have a connected ladder
-      for(d in 1:private$degree) {
-        discrete_simplex <- discrete.simplex(d=d,m=private$m) #all possible combinations
-        new_M_list <- vector("list", private$k)
-        for(i in 1:private$k) {
-          new_M_list[[i]] <- data.frame(t(apply(discrete_simplex, 1, function(vec) {vec+private$M[i,]})))
+      #If increase_degree is specified, then we just increase of d degree
+      #Notice that it may not be connected, in case an error is return
+      if(!is.null(increase_degree)) {
+        test_ladder_list <- self$increase.degree(d=increase_degree) #Create new ladder that is a disaggregation and has degree increased by increase_degree
+        #Check if it is connected
+        if(test_ladder_list$obj$get.connected()) {
+          return(test_ladder_list)
         }
-        #Construct a ladder with the new M and check if it is connected
-        new_M <- as.matrix(rbindlist(new_M_list))
-        test_ladder <- Ladder$new(M = new_M, R=rep(1,nrow(new_M)))
-        if(test_ladder$get.connected()) {
-          #The ladder is connected!
-          #Compute the new vector R
-          discrete_simplex_binomial <- as.numeric(apply(discrete_simplex,1,function(vec) {multinomial.coeff(d=d,n=vec)}))
-          new_R <- rep(private$R, each=length(discrete_simplex_binomial))*discrete_simplex_binomial
-          A <- split(1:nrow(new_M), rep(1:private$k, each=length(discrete_simplex_binomial)))
-          return(list(obj = Ladder$new(M=new_M, R=new_R), A=A))
+      } else {
+        for(d in 1:private$degree) {
+          test_ladder_list <- self$increase.degree() #Create new ladder that is a disaggregation and has degree increased by 1
+          #Check if it is connected
+          if(test_ladder_list$obj$get.connected()) {
+            return(test_ladder_list)
+          }
         }
       }
       stop("Impossible to create a connected ladder.") #Should never happen.
@@ -256,7 +291,9 @@ Ladder <- R6::R6Class("Ladder",
     get.P = function()  {private$P},
     get.P.moves = function() {private$P_moves},
     get.P.cumsum = function() {private$P_cumsum},
-    get.P.moves.list = function() {private$P_moves_list}
+    get.P.moves.list = function() {private$P_moves_list},
+    get.M = function() {private$M},
+    get.degree = function() {private$degree}
   ),
   private = list(
     #FIELDS
@@ -266,12 +303,14 @@ Ladder <- R6::R6Class("Ladder",
     valid = FALSE, #FALSE if it is not a valid ladder. It is checked after construction.
     fine = NA,
     connected = NA,
+    min_state = NA, #Minimum state (used for monotonic CFTP when m=2)
+    max_state = NA, #Maximum state (used for monotonic CFTP when m=2)
     neigh = NULL, #neighbourhood. It is a double indexed list, the first index is the state, the second the roll of the die.
     a = NA, #constant for the Markov chain. It is used in global update function (DEPRECATED)
     P = NA, #Transition matrix of the Markov chain. It just contains the cooefficients without the p_i's
     P_moves = NA, #Moves in the transition matrix
-    P_cumsum = NA, #List double indexed. The first index is the current state, the second is the current role. Returns the cumsum of the coefficients
-    P_moves_list = NA, #List double index. The first index is the current state, the second is the current role. Returns the index of the possible moves
+    P_cumsum = NA, #List double indexed. The first index is the current state, the second is the current roll. Returns the cumsum of the coefficients
+    P_moves_list = NA, #List double index. The first index is the current state, the second is the current roll. Returns the index of the possible moves
     #METHODS
     is.ladder = function() {
       private$valid = TRUE
