@@ -278,7 +278,7 @@ Ladder <- R6::R6Class("Ladder",
         }
       } else {
         for(d in 1:private$degree) {
-          test_ladder_list <- self$increase.degree() #Create new ladder that is a disaggregation and has degree increased by 1
+          test_ladder_list <- self$increase.degree(d=d) #Create new ladder that is a disaggregation and has degree increased by 1
           #Check if it is connected
           if(test_ladder_list$obj$get.connected()) {
             return(test_ladder_list)
