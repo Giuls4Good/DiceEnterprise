@@ -13,3 +13,7 @@ CFTPCpp <- function(k, probs, connected, fine, P_cumsum, P_moves_list, monotonic
     .Call('_DiceEnterprise_CFTPCpp', PACKAGE = 'DiceEnterprise', k, probs, connected, fine, P_cumsum, P_moves_list, monotonic, min, max, verbose)
 }
 
+construct_discrete_simplex <- function(d, m) {
+    .Call('_DiceEnterprise_construct_discrete_simplex', PACKAGE = 'DiceEnterprise', d, m)
+}
+

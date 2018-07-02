@@ -55,11 +55,24 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// construct_discrete_simplex
+arma::mat construct_discrete_simplex(int d, int m);
+RcppExport SEXP _DiceEnterprise_construct_discrete_simplex(SEXP dSEXP, SEXP mSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type d(dSEXP);
+    Rcpp::traits::input_parameter< int >::type m(mSEXP);
+    rcpp_result_gen = Rcpp::wrap(construct_discrete_simplex(d, m));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_DiceEnterprise_findIntervalSingle", (DL_FUNC) &_DiceEnterprise_findIntervalSingle, 2},
     {"_DiceEnterprise_updateFunCpp", (DL_FUNC) &_DiceEnterprise_updateFunCpp, 7},
     {"_DiceEnterprise_CFTPCpp", (DL_FUNC) &_DiceEnterprise_CFTPCpp, 10},
+    {"_DiceEnterprise_construct_discrete_simplex", (DL_FUNC) &_DiceEnterprise_construct_discrete_simplex, 2},
     {NULL, NULL, 0}
 };
 

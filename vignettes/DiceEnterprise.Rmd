@@ -95,6 +95,28 @@ Notice that the package supports only functions defined from $(0,1)$ to $[0,1]$ 
 bf_amp <- BernoulliFactory$new(f_1 = list(2,1), f_2 = list(c(1,-2),c(0,1)))
 ```
 
+### Alternative sampling algorithm
+
+For Bernoulli Factory type problems (where $m = 2$) it is possible to use an alternative algorithm to get a sample based on acceptance-rejection. 
+
+```{r bf_AR}
+fp_tosses_AR <- bf$sample.AR(n = 1000, roll.fun = toss_coin)
+plot.confidence.interval(fp_tosses_AR,bf$evaluate(3/4))
+```
+By setting the option `verbose = TRUE`, the produced output is a list that contains also further information. In particular the empirical number of tosses required by the algorithm can be computed.
+```{r bf_AR_verbose1}
+fp_tosses_AR2 <- bf$sample.AR(n = 1000, roll.fun = toss_coin, verbose = TRUE)
+print(paste0("Empirical number of tosses required: ",mean(fp_tosses_AR2$empirical_tosses)))
+```
+
+
+If instead of a function that tosses the original coin, the true value of $p$ is passed to the function and `verbose = TRUE`, further information are available. In particular, it is possible to compute the exact expected number of tosses required.
+
+```{r bf_AR_verbose2}
+fp_tosses_AR3 <- bf$sample.AR(n = 1000, true_p = c(3/4,1/4), verbose = TRUE)
+print(paste0("Theoretical number of tosses required: ",mean(fp_tosses_AR3$theor_tosses)))
+```
+
 ### Example: Logistic Bernoulli Factory
 
 Consider the function as in Huber
@@ -432,6 +454,18 @@ mean(sample_coins_uniform[[2]])
 length(indep_coins_probs)/sum(indep_coins_probs)
 ```
 
+```{r bug_to_correct, error=TRUE, echo = FALSE}
+#(0.2501 - 1 x + 1 x^2)/((0.3 - 1 x + 1 x^2)+(0.2501 - 1 x + 1 x^2))
+# bf_bug <- BernoulliFactory$new(
+#   f_1 = list(c(0.2501,-1,1), c(0,1,2)),
+#   f_2 = list(c(0.3,-1,1), c(0,1,2)),
+# )
+#(2-5x+5x^2)/(10x+10)
+bf_bug <- DiceEnterprise$new(G = list(
+  list(c(2,-5,5),c("00","10","20")),
+  list(c(10,10),c("10","00"))
+))
+```
 
 
 

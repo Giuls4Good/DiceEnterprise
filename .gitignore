@@ -4,3 +4,6 @@
 .Ruserdata
 vignettes/DiceEnterprise_cache
 temp
+inst/doc
+vignettes/Efficiency_cache
+tests

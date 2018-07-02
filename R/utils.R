@@ -61,11 +61,17 @@ discrete.simplex <- function(d,m) {
   #Generates all possible vectors of length m such that the
   #sum of its entries is equal to d.
   #Returns a matrix with m columns
-  partitions <- restrictedparts(n=d,m=m,include.zero = TRUE) #all possible partitions. Still need to permutate them.
-  l_permutations <- lapply(split(t(partitions), 1:ncol(partitions)), function(vec) {
-    data.frame(unique(t(apply(permutations(n = m, r = m), 1, function(x) vec[x]))))
-  }) #list of all the permutations (by row)
-  return(as.matrix(rbindlist(l_permutations)))
+
+  #OLD:
+  # partitions <- restrictedparts(n=d,m=m,include.zero = TRUE) #all possible partitions. Still need to permutate them.
+  # l_permutations <- lapply(split(t(partitions), 1:ncol(partitions)), function(vec) {
+  #   data.frame(unique(t(apply(permutations(n = m, r = m), 1, function(x) vec[x]))))
+  # }) #list of all the permutations (by row)
+  # return(as.matrix(rbindlist(l_permutations)))
+
+  #NEW (C++ implementation, 300x faster):
+  #This function is kept for backward compatibility
+  return(construct_discrete_simplex(d,m))
 }
 
 multinomial.coeff <- function(d,n) {

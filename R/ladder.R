@@ -106,6 +106,7 @@ Ladder <- R6::R6Class("Ladder",
       cat("Constant a = ",private$a,"\n",sep="")
     },
     get.connected = function() {private$connected},
+    get.fine = function() {private$fine},
     update.fun.global = function(i,B,U) {
       #Update function for the ladder using the global constant a (NOT EFFICIENT)
       stopifnot(private$connected, private$fine, length(B)==length(U))
@@ -182,6 +183,88 @@ Ladder <- R6::R6Class("Ladder",
         res[i] <- self$update.fun(1,roll.fun(time_span),runif(time_span))
       }
       cat("Empirical equilibrium: ",table(res)/reps,"\n")
+    },
+    sample.AR = function(n,roll.fun = NULL, true_p = NULL, num_cores = 1, verbose = FALSE,...) {
+      #Sample using accept-reject algorithm
+      if(is.na(private$fine) || !private$fine) {
+        stop("Sampling is possible only for fine ladders.")
+      }
+      #Define rolling function
+      if(is.null(roll.fun) && is.null(true_p)) {stop("Either declare roll.fun or the true probabilities.")}
+      if(is.null(roll.fun)) {
+        stopifnot(isTRUE(all.equal(1,sum(true_p))))
+        roll.fun <- function(n) {sample(1:private$m, size = n, replace = TRUE, prob = true_p)}
+      }
+
+      #Compute constant Q = max R_i/choose(d,n) where n is any member of the discrete simplex
+      discrete_simplex <- discrete.simplex(d=private$degree,m=private$m) #all possible combinations
+      discrete_simplex_binomial_unique <- unique(as.numeric(apply(discrete_simplex,1,function(vec) {multinomial.coeff(d=private$degree,n=vec)})))
+      Q <- max(sapply(private$R, function(r) {max(r/discrete_simplex_binomial_unique)}))
+      if(verbose && !is.null(true_p)) { #Compute C_p is true_p is available
+        aux <- rep(NA, nrow(private$M))
+        for(i in 1:nrow(private$M)) {
+          aux[i] <- prod(true_p^private$M[i,])*private$R[i]
+        }
+        C_p <- sum(aux)
+      } else {
+        C_p <- NA
+      }
+
+      #Sample using A-R
+      res_AR <- mclapply(1:n, function(rep) {
+        num_rolls <- 0
+        num_iter <- 0
+        while(TRUE) {
+          num_iter <- num_iter + 1
+          #Roll the die d times
+          toss_dice <- roll.fun(n = private$degree)
+          num_rolls <- num_rolls + private$degree
+          #Construct vector with the result
+          result_dice <- numeric(private$m)
+          for(i in 1:private$m) {
+            result_dice[i] <- length(which(toss_dice == i))
+          }
+          #Find which R corresponds to the obtained result
+          R_res <- 0 #if there is no row corresponding -> R is 0
+          for(i in 1:nrow(private$M)) {
+            if(isTRUE(base::all.equal(private$M[i,],result_dice, check.attributes = FALSE))) {
+              R_res <- private$R[i]
+              categ_output <- i #index of the category of the output
+              break
+            }
+          }
+          prob_accept <- R_res/(multinomial.coeff(d=private$degree, n=result_dice)*Q)
+          if(prob_accept > 1) { stop("Something's wrong with the algorithm.")} #Debug
+          accept <- sample(1:2, size = 1, prob = c(prob_accept, 1-prob_accept))
+          if(accept == 1) { #Accept drawn point
+            if(verbose) {
+              return(list(res = categ_output, rolls = num_rolls, iter = num_iter))
+            } else {
+              return(categ_output)
+            }
+          }
+        }
+      }, mc.cores = num_cores)
+
+      res_AR_sample <- unlist(lapply(res_AR, function(x) {x[[1]]}))
+      if(verbose) {
+        res_AR_rolls <- unlist(lapply(res_AR, function(x) {x[[2]]}))
+        res_AR_iter <- unlist(lapply(res_AR, function(x) {x[[3]]}))
+      }
+
+      #Produce output
+      if(verbose) {
+        return(list(res = res_AR_sample,
+                    empirical_tosses = res_AR_rolls,
+                    empirical_iter = res_AR_iter,
+                    theor_iter = Q/C_p,
+                    theor_tosses = private$degree*Q/C_p,
+                    C_p = C_p,
+                    Q = Q))
+      } else {
+        return(res_AR_sample)
+      }
+
     },
     sample = function(n,roll.fun = NULL, true_p = NULL, num_cores = 1, verbose = FALSE, global = FALSE, double_time = FALSE,...) {
       #Get a sample from the ladder using CFTP

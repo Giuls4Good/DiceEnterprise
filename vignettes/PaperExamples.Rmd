@@ -28,9 +28,9 @@ $$
 f(p) = \frac{\sqrt{2}p^3}{(\sqrt{2}-5)p^3+11p^2-9p+3}
 $$
 ```{r bf_settings}
-sample_size <- 1000 #Number of tosses
+sample_size <- 1 #Number of tosses
 probs_vec <- c(0.01,0.1,0.25,0.5,0.75,0.9,0.99) #Vector of true probabilities of the p-coin
-num_cores <- 2 #Number of cores used (parallel computing is not supported on Windows)
+num_cores <- 4 #Number of cores used (parallel computing is not supported on Windows)
 conf_level <- 0.95 #Confidence interval level
 ```
 
@@ -83,12 +83,12 @@ pandoc.table(bf_res)
 ## Example 2 - Efficiency of Monotonic CFTP
 We consider the ladder
 $$
-\pi(p) \propto ((1-p)^4,1000p(1-p)^3,p^2(1-p)^2,1000p^3(1-p),p^4)
+\pi(p) \propto ((1-p)^4,1000p(1-p)^3,p^2(1-p)^2,500p^3(1-p),p^4)
 $$
 and show that increasing the degree of the ladder leads to better performance in terms of the expected number of tosses of the $p$-coin.
 
 ```{r bf_efficiency, echo=FALSE, results='asis'}
-R <- c(1,1000,1,1000,1)
+R <- c(1,1000,1,500,1)
 max_increase_degree <- 2 #How much the degree of the original ladder is increased by
 original_ladder <- DiceEnterprise$new(list(
   list(R[1], "04"),
@@ -106,21 +106,47 @@ bf.res.eff <- function(toss.coin, original_ladder,max_increase_degree) {
   }
   #Prepare output
   bf_res <- matrix(NA, nrow = max_increase_degree+1, ncol = length(probs_vec)+1)
+  bound_res <-matrix(NA, nrow = max_increase_degree+1, ncol = length(probs_vec)) #Matrix with bound on the expected tosses
   rownames(bf_res) <- paste0("+",0:max_increase_degree)
   colnames(bf_res) <- c(as.character(probs_vec),"Eff.Condition") #The last column is true if the efficiency condition is met
+  rownames(bound_res) <- rownames(bf_res)
+  colnames(bound_res) <- colnames(bf_res)[-ncol(bf_res)]
+  tot_rows <- length(probs_vec)*(max_increase_degree+1)
+  df_res <- data.frame(p=rep(NA,tot_rows),
+                     degree = rep(NA, tot_rows),
+                     empirical_tosses = rep(NA, tot_rows),
+                     bound_tosses = rep(NA, tot_rows))
+  counter <- 1
+  #Compute
   for(i in 1:length(probs_vec)) {
     bf_res[1,i] <- mean(original_ladder$sample(n=sample_size, roll.fun = toss.coin, p = probs_vec[i], num_cores = num_cores, verbose = TRUE, double_time = FALSE)$exp_rolls)
     bf_res[1,ncol(bf_res)] <- as.numeric(original_ladder$get.efficiency.condition())
+    bound_res[1,i] <- original_ladder$expected.tosses.bound(true_p = c(probs_vec[i],1-probs_vec[i]))
+    df_res[counter,] <- c(probs_vec[i],0,bf_res[1,i],bound_res[1,i])
+    counter <- counter + 1
     for(deg in 1:max_increase_degree) {
       bf_res[deg+1,i] <- mean(increased_ladders[[deg]]$sample(n=sample_size, roll.fun = toss.coin, p = probs_vec[i], num_cores = num_cores, verbose = TRUE, double_time = FALSE)$exp_rolls)
       bf_res[deg+1,ncol(bf_res)] <- as.numeric(increased_ladders[[deg]]$get.efficiency.condition())
+      bound_res[deg+1,i] <- increased_ladders[[deg]]$expected.tosses.bound(true_p = c(probs_vec[i],1-probs_vec[i]))
+      df_res[counter,] <- c(probs_vec[i],deg,bf_res[deg+1,i],bound_res[deg+1,i])
+      counter <- counter + 1
     }
   }
-  return(bf_res)
+  return(list(bf_res,bound_res,df_res))
 }
-bf_res <- bf.res.eff(toss.coin,original_ladder,max_increase_degree)
+aux <- bf.res.eff(toss.coin,original_ladder,max_increase_degree)
+bf_res <- aux[[1]]
+bound_res <- aux[[2]]
 pandoc.table(bf_res)
+pandoc.table(bound_res)
 ```
+
+```{r bf_efficiency_plot, echo=FALSE}
+df_res <- aux[[3]]
+ggplot(data = df_res, aes(x = p, y = bound_tosses, colour = factor(degree))) +
+  geom_line(aes(group = factor(degree))) + geom_point()
+```
+
 
 
 ## Example 3 - Logistic Bernoulli Factory
