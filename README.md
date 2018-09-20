@@ -5,7 +5,7 @@
 Make sure that the package `devtools` is installed and run
 ```R
 library(devtools)
-install_github("Giuls4Good/DiceEnterprise")
+install_github("giuliomorina/DiceEnterprise")
 ```
 
 ## Documentation and Examples
