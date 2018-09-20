@@ -8,6 +8,8 @@ library(devtools)
 install_github("giuliomorina/DiceEnterprise")
 ```
 
+On Mac OS you need to have installed Xcode (available on the App Store) and gfortran (https://gcc.gnu.org/wiki/GFortranBinariesMacOS)
+
 ## Documentation and Examples
 
 A vignette explaining the functionalities of the package is available in this [repository](http://htmlpreview.github.io/?https://github.com/Giuls4Good/DiceEnterprise/blob/master/inst/doc/DiceEnterprise.html). Alternatively, run
