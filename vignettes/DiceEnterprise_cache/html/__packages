@@ -5,6 +5,5 @@ gtools
 data.table
 DescTools
 ggplot2
-DiceEnterprise
 pander
-xtable
+DiceEnterprise

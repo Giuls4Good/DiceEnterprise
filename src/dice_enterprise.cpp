@@ -25,6 +25,28 @@ arma::mat construct_discrete_simplex(int d, int m) {
   return(discrete_simplex);
 }
 
+// [[Rcpp::export]]
+double expected_tosses_bound_cpp(arma::mat A) {
+  //Perform eigen decomposition
+  arma::cx_vec eigval;
+  arma::cx_mat eigvec;
+  arma::eig_gen(eigval, eigvec, A);
+
+  arma::mat Q = real(eigvec);
+  arma::colvec D_vec = real(eigval);
+  arma::mat Q_inv = inv(Q);
+
+  //Compute expected number of tosses
+  double expected_tosses = 0.0, new_expected_tosses = 1.0;
+  int t = 1;
+  while(new_expected_tosses - expected_tosses > 1e-4) {
+    if(t > 1) {expected_tosses = new_expected_tosses;}
+    new_expected_tosses = expected_tosses + accu(Q*diagmat(pow(D_vec,t))*Q_inv);
+    t++;
+  }
+  return(new_expected_tosses);
+}
+
 // // NOT FINISHED
 // List generate_ladder_initial_Cpp(List G_poly, int degree, int m, int v) {
 //   //This function makes sure that:

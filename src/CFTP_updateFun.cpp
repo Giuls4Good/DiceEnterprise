@@ -2,6 +2,7 @@
 //#include <Rcpp.h>
 #include <RcppArmadilloExtensions/sample.h>
 using namespace Rcpp;
+using namespace std;
 
 // [[Rcpp::export]]
 int findIntervalSingle(double U, NumericVector breaks) {
@@ -14,9 +15,11 @@ int findIntervalSingle(double U, NumericVector breaks) {
   return(out);
 }
 
+
 // [[Rcpp::export]]
-int updateFunCpp(int currentState, arma::uvec B, arma::vec U, bool connected, bool fine,
-                           List P_cumsum, List P_moves_list) {
+int updateFunCpp(int currentState, const arma::uvec& B,
+                 const arma::vec& U, bool connected, bool fine,
+                 const List& P_cumsum, const List& P_moves_list) {
   //Check if it is a valid ladder and a valid request
   if(!connected || !fine || B.n_elem!= U.n_elem) {
     stop("Not a valid call. Check if the ladder is fine and connected and that B and U have the same length.");
@@ -44,6 +47,47 @@ int updateFunCpp(int currentState, arma::uvec B, arma::vec U, bool connected, bo
   }
 
   return(currentState);
+}
+
+// [[Rcpp::export]]
+arma::rowvec updateFunVecCpp(const arma::vec& states, const arma::uvec& B,
+                             const arma::vec& U, bool connected, bool fine,
+                          const List& P_cumsum, const List& P_moves_list,
+                          const arma::vec& mapped_states, int k, int t_mapped_states,
+                          int current_time) {
+  // We reuse some previous results. mapped_states is a k-long vector where the first entry
+  // tells where the first state is mapped at time 0 starting from time -t_mapped_states;
+  // the second entry tells where the second state is mapped at time 0 starting from time -t_mapped_states
+  // and so on. Some entries may not be available, in this case we need to compute it.
+
+  //Check if it is a valid ladder and a valid request
+  if(!connected || !fine || B.n_elem!= U.n_elem) {
+    stop("Not a valid call. Check if the ladder is fine and connected and that B and U have the same length.");
+  }
+
+  arma::rowvec current_states(states.n_elem);
+  int new_state;
+
+  for(int j=0; j<states.n_elem; j++) {
+    // Move state[j] from current_time to t_mapped_states
+    arma::vec U1 = U.head(current_time-t_mapped_states);
+    arma::uvec B1 = B.head(current_time-t_mapped_states);
+    new_state = updateFunCpp(states[j], B1, U1, connected, fine, P_cumsum, P_moves_list);
+    //Check if this state has already been mapped
+    if(mapped_states[new_state-1] >= 1 && mapped_states[new_state-1] <= k) {
+      //Rcout << "Already in! " << states[j] << " -> " << new_state << " -> " << mapped_states[new_state-1] << endl;
+      new_state = mapped_states[new_state-1]; //-1 cause indices start from 0
+    } else {
+      //It hasn't been mapped yet
+      arma::vec U2 = U.tail(t_mapped_states);
+      arma::uvec B2 = B.tail(t_mapped_states);
+      new_state = updateFunCpp(new_state, B2, U2, connected, fine, P_cumsum, P_moves_list);
+      //Rcout << "Not there yet! " << states[j] << " -> " << new_state << endl;
+    }
+    current_states[j] = new_state;
+  }
+
+  return(current_states);
 }
 
 arma::uvec rollDieGivenProbs(int n, NumericVector probs) {

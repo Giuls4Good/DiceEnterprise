@@ -9,11 +9,19 @@ updateFunCpp <- function(currentState, B, U, connected, fine, P_cumsum, P_moves_
     .Call('_DiceEnterprise_updateFunCpp', PACKAGE = 'DiceEnterprise', currentState, B, U, connected, fine, P_cumsum, P_moves_list)
 }
 
+updateFunVecCpp <- function(states, B, U, connected, fine, P_cumsum, P_moves_list, mapped_states, k, t_mapped_states, current_time) {
+    .Call('_DiceEnterprise_updateFunVecCpp', PACKAGE = 'DiceEnterprise', states, B, U, connected, fine, P_cumsum, P_moves_list, mapped_states, k, t_mapped_states, current_time)
+}
+
 CFTPCpp <- function(k, probs, connected, fine, P_cumsum, P_moves_list, monotonic, min, max, verbose) {
     .Call('_DiceEnterprise_CFTPCpp', PACKAGE = 'DiceEnterprise', k, probs, connected, fine, P_cumsum, P_moves_list, monotonic, min, max, verbose)
 }
 
 construct_discrete_simplex <- function(d, m) {
     .Call('_DiceEnterprise_construct_discrete_simplex', PACKAGE = 'DiceEnterprise', d, m)
+}
+
+expected_tosses_bound_cpp <- function(A) {
+    .Call('_DiceEnterprise_expected_tosses_bound_cpp', PACKAGE = 'DiceEnterprise', A)
 }
 

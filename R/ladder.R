@@ -88,7 +88,9 @@ Ladder <- R6::R6Class("Ladder",
         private$define.neighbourhoods() #Compute neighbourhoods
         private$is.connected() #Check connected
         private$compute.constant() #Compute constant a
-        private$compute.transition.matrix() #Compute transition matrix for the update function
+        if(private$connected && private$fine) {
+          private$compute.transition.matrix() #Compute transition matrix for the update function
+        }
         if(private$m == 2){ #Save minimum and maximum states
           private$min_state <- which.min(private$M[,1])
           private$max_state <- which.max(private$M[,1])
@@ -145,6 +147,11 @@ Ladder <- R6::R6Class("Ladder",
     update.fun = function(i,B,U) {
       return(updateFunCpp(currentState = i,B = B,U = U, connected = private$connected, fine = private$fine,
                           P_cumsum = private$P_cumsum, P_moves_list = private$P_moves_list))
+    },
+    update.fun.vec = function(states,B,U,current_time,mapped_states=rep(0,private$k),t_mapped_states=0) {
+      return(updateFunVecCpp(states = states,B = B,U = U, connected = private$connected, fine = private$fine,
+                          P_cumsum = private$P_cumsum, P_moves_list = private$P_moves_list,
+                          mapped_states = mapped_states, k=private$k, t_mapped_states=t_mapped_states, current_time = current_time))
     },
     update.fun.slow = function(i,B,U) {
       #Update function for the ladder using local moves (more efficient than the global bersion)
@@ -286,7 +293,8 @@ Ladder <- R6::R6Class("Ladder",
           #     monotonic = monotonic_CFTP, min = private$min_state, max = private$max_state,verbose=verbose, double_time = double_time,...) #min, max are used only in monotonic case, otherwise they are ignored
         } else {
           CFTP(k = private$k, roll.fun = roll.fun, update.fun = self$update.fun,
-               monotonic = monotonic_CFTP, min = private$min_state, max = private$max_state,verbose=verbose, double_time = double_time,...) #min, max are used only in monotonic case, otherwise they are ignored
+               monotonic = monotonic_CFTP, min = private$min_state, max = private$max_state,verbose=verbose, double_time = double_time,
+               update.fun.vec = self$update.fun.vec, ...) #min, max are used only in monotonic case, otherwise they are ignored
         }
       }, mc.cores = num_cores)
 
@@ -389,6 +397,7 @@ Ladder <- R6::R6Class("Ladder",
     min_state = NA, #Minimum state (used for monotonic CFTP when m=2)
     max_state = NA, #Maximum state (used for monotonic CFTP when m=2)
     neigh = NULL, #neighbourhood. It is a double indexed list, the first index is the state, the second the roll of the die.
+    S = NULL, #Sum of the R_i in a neighbourhood. S_b(i) = sum j in N_b(i) of R_j
     a = NA, #constant for the Markov chain. It is used in global update function (DEPRECATED)
     P = NA, #Transition matrix of the Markov chain. It just contains the cooefficients without the p_i's
     P_moves = NA, #Moves in the transition matrix
@@ -423,10 +432,13 @@ Ladder <- R6::R6Class("Ladder",
       #Define neighbourhoods
       #Initialize
       private$neigh <- vector("list", private$k)
+      private$S <- vector("list", private$k)
       for(i in 1:private$k) {
         private$neigh[[i]] <- vector("list", private$m)
+        private$S[[i]] <- vector("list", private$m)
         for(b in 1:private$m) {
           private$neigh[[i]][[b]] <- numeric()
+          private$S[[i]][[b]] <- 0
         }
       }
       #Scroll through matrix M and fill the neighbourhoods dynamically (not efficient)
@@ -438,6 +450,7 @@ Ladder <- R6::R6Class("Ladder",
               #The two rows are not equal. If they are equal it means that the ladder is not fine.
               aux <- private$M[i,] - private$M[j,]
               private$neigh[[i]][[which(aux == -1)]] <- append(private$neigh[[i]][[which(aux == -1)]],j) #SLOW AND TERRIBLE
+              private$S[[i]][[which(aux == -1)]] <- private$S[[i]][[which(aux == -1)]] + private$R[j]
             } else {
               #The two rows are equal -> ladder is not fine.
               #Neighbourhoods are computed anyway cause they are used to check for connected condition.
@@ -483,6 +496,95 @@ Ladder <- R6::R6Class("Ladder",
       invisible(self)
     },
     compute.transition.matrix = function() {
+      #Fill the entries of the transition matrix.
+      private$P <- matrix(0, nrow = private$k, ncol = private$k) #Initialize
+      private$P_moves <- matrix(0, nrow = private$k, ncol = private$k)
+      #Use algorithm to iteratively fill the entries of the matrix
+      #At the same time fills which rolls are necessary to move from one
+      #state to another
+      #Initialisation
+      N <- private$neigh #Neighbours
+      S <- private$S
+      #Initialise weights
+      W <- vector("list", private$k)
+      for(i in 1:private$k) {
+        W[[i]] <- vector("list", private$m)
+        for(b in 1:private$m) {
+          W[[i]][[b]] <- 0
+        }
+      }
+
+      #Main loop
+      while(TRUE) {
+        #Find b and i such that S_b(i) is maximum
+        b_max <- NA; i_max <- NA; S_b_i <- 0
+        for(i in 1:private$k) {
+          for(b in 1:private$m) {
+            if(S[[i]][[b]] > S_b_i) {
+              b_max <- b; i_max <- i; S_b_i <- S[[i]][[b]]
+            }
+          }
+        }
+        b <- b_max; i <- i_max;
+        #Stop if all have been done
+        if(S_b_i == 0) {break}
+        #For each j in N_b(i)
+        for(j in N[[i]][[b]]) {
+          #Assign maximum probability of moving
+          private$P[i,j] <- private$R[j]/S_b_i
+          private$P_moves[i,j] <- b
+          #Find c s.t. i is in N_c(j)
+          c <- NA
+          for(b_aux in 1:private$m) {
+            if(i %in% private$neigh[[j]][[b_aux]]) {
+              c <- b_aux
+              break
+            }
+          }
+          #Assign reverse move
+          private$P[j,i] <- private$R[i]/S_b_i
+          private$P_moves[j,i] <- c
+          N[[j]][[c]] <- setdiff(N[[j]][[c]], i)
+          W[[j]][[c]] <- W[[j]][[c]] + private$R[i]/S_b_i
+          S[[j]][[c]] <- 0
+          for(h in N[[j]][[c]]) {
+            S[[j]][[c]] <- S[[j]][[c]] + private$R[h]
+          }
+          if(W[[j]][[c]] == 1) {
+            S[[j]][[c]] <- 0
+          } else {
+            S[[j]][[c]] <- S[[j]][[c]]/(1-W[[j]][[c]])
+          }
+
+        }
+        #Update N_b(i) and S_b(i)
+        N[[i]][[b]] <- numeric()
+        S[[i]][[b]] <- 0
+      }
+
+      #Finished
+      diag(private$P) <- rep(NA,private$k)
+      #Create the list of the cumulative sums to speed up the update function
+      private$P_cumsum <- vector("list", length = private$k)
+      private$P_moves_list <- vector("list", length = private$k)
+      for(i in 1:private$k) {
+        private$P_cumsum[[i]] <- vector("list", length = private$m)
+        private$P_moves_list[[i]] <- vector("list", length = private$m)
+        for(b in 1:private$m) {
+          move <- which(private$P_moves[i,] == b) #Find where it can move from i having rolled b
+          if(length(move) == 0) {
+            private$P_cumsum[[i]][[b]] <- numeric(0)
+            private$P_moves_list[[i]][[b]] <- numeric(0)
+          } else {
+            move_coeff <- private$P[i,move]
+            private$P_cumsum[[i]][[b]] <- cumsum(move_coeff)
+            private$P_moves_list[[i]][[b]] <- move
+          }
+        }
+      }
+
+    },
+    compute.transition.matrix.suboptimal = function() {
       #Fill the entries of the transition matrix.
       #P_ij is equal to R_j/max(sum h in neighbour of j given the roll sum R_h,
       #sum h in neighbour of i given the roll and that contains j R_h)

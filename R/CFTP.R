@@ -21,7 +21,10 @@
 #' @param verbose if \code{TRUE}, the time steps required by the algorithm is returned as well.
 #' @param double_time if \code{TRUE} at each iteration of the algorithm, the time is doubled instead
 #' of increased by one. Can lead to slower implementation if rolling the die is computationally costly.
-CFTP <- function(k, roll.fun, update.fun, monotonic = FALSE, min = NA, max = NA, verbose = FALSE, double_time = FALSE,...) {
+#' @param update.fun.vec update function of the Markov chain. See the method \code{update.fun.vec} of
+#' class \code{Ladder} to check how it should be defined.
+CFTP <- function(k, roll.fun, update.fun, monotonic = FALSE, min = NA, max = NA, verbose = FALSE, double_time = FALSE,
+                 update.fun.vec=NULL,...) {
   #if double_time = true, it doubles the time span at each step. Otherwise it is just increased by one.
   #if verbose = true, a list is returned containing the time required in terms of iterations
   #min, max are used only in montonoic case, otherwise they are ignored
@@ -34,32 +37,76 @@ CFTP <- function(k, roll.fun, update.fun, monotonic = FALSE, min = NA, max = NA,
   X <- X_span
   B <- roll.fun(n=1,...)
   U <- runif(n=1)
+  mapped_states <- rep(0,k)
   #Move already forward (as coalesce may occur in 1 time step)
-  counter <- 1
-  for(i in X_span) {
-    X[counter] <- update.fun(i,B,U)
-    counter <- counter + 1
+  X <- update.fun.vec(states=X_span,B=B,U=U,
+                          current_time=1,mapped_states=mapped_states,
+                          t_mapped_states=0)
+  if(monotonic) {
+    mapped_states[min] <- X[1]; mapped_states[max] <- X[2];
+  } else {
+    mapped_states <- X
   }
+
+  # counter <- 1
+  # for(i in X_span) {
+  #   X[counter] <- update.fun(i,B,U)
+  #   counter <- counter + 1
+  # }
+
   #Loop
-  while(length(unique(X)) > 1) {
-    if(double_time) {
-      B <- c(roll.fun(n=T/2,...),B) #NOT EFFICIENT
-      U <- c(runif(n=T/2),U)
+  #while(length(unique(X, MARGIN = 2)) > 1) { #SLOWER
+  while(!all(X==X[1])) {
+
+    if(monotonic) {
+      if(double_time) {
+        B <- c(roll.fun(n=T/2,...),B) #NOT EFFICIENT
+        U <- c(runif(n=T/2),U)
+      } else {
+        B <- c(roll.fun(n=1,...),B) #NOT EFFICIENT
+        U <- c(runif(n=1),U)
+      }
     } else {
-      B <- c(roll.fun(n=1,...),B) #NOT EFFICIENT
-      U <- c(runif(n=1),U)
+      #We do not need to store all the rolls; we can just now where all the
+      #states were mapped to
+      if(double_time) {
+        B <- roll.fun(n=T/2,...)
+        U <- runif(n=T/2)
+      } else {
+        B <- roll.fun(n=1,...)
+        U <- runif(n=1)
+      }
     }
-    counter <- 1
-    for(i in X_span) {
-      X[counter] <- update.fun(i,B,U)
-      counter <- counter + 1
+
+        if(!double_time) {
+      X <- update.fun.vec(states=X_span,B=B,U=U,
+                            current_time=T,mapped_states=mapped_states,
+                            t_mapped_states=T-1)
+    } else {
+      X <- update.fun.vec(states=X_span,B=B,U=U,
+                              current_time=T,mapped_states=mapped_states,
+                              t_mapped_states=T/2)
     }
+    if(monotonic) {
+      mapped_states[min] <- X[1]; mapped_states[max] <- X[2];
+    } else {
+      mapped_states <- X
+    }
+
+    # counter <- 1
+    # for(i in X_span) {
+    #   X[counter] <- update.fun(i,B,U)
+    #   counter <- counter + 1
+    # }
+
+
     if(double_time) {
       T <- 2*T
     } else {
       T <- T+1
     }
   }
+
   if(verbose) {
     if(double_time){
       return(list(X=X[1], T=T/2))

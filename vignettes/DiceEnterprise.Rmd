@@ -239,15 +239,17 @@ roll_die <- function(n) {
 } 
 #Get a sample of size 1000 from the multivariate ladder
 #and plot the estimates with confidence intervals
-sample_ex2 <- de_ex2$sample(n=1000, roll.fun = roll_die)
-plot.confidence.interval(sample_ex2,de_ex2$evaluate(true_prob_original_die))
+set.seed(17)
+sample_ex2 <- de_ex2$sample(n=1000, roll.fun = roll_die, verbose = TRUE)
+print(paste0("Average number of rolls required: ", mean(sample_ex2[[2]])))
+plot.confidence.interval(sample_ex2[[1]],de_ex2$evaluate(true_prob_original_die))
 
 ```
 
 
 ## Independent coins
 
-Assume that instead of an $m$-sided die, $m$ independent coins are given, each one with its own probability of landing heads and denoted by $p_i$. In general, $(p_1,\ldots,p_m) \not\in \Delta^m$. Consider as an example, that we have access to 3 independent coins of biases $(0.4,0.7,0.55)$ and wish to sample from the distribution $f(\boldsymbol{p}) = \frac{1}{p_1+p_2+p_3}\left(p_1,p_2,p_3\right) = (8/33,14/33,1/3)$. There are several ways to define a die whose probabilites are a function of $(p_1,\ldots,p_m)$. The package provides support for two different definitions:
+Assume that instead of an $m$-sided die, $m$ independent coins are given, each one with its own probability of landing heads and denoted by $p_i$. In general, $(p_1,\ldots,p_m) \not\in \Delta^m$. Consider as an example, that we have access to 3 independent coins of biases $(0.4,0.7,0.55)$ and wish to sample from the distribution $f(\boldsymbol{p}) = \frac{1}{p_1+p_2+p_3}\left(p_1,p_2,p_3\right) = (8/33,14/33,1/3)$. There are several ways to define a die whose probabilites are a function of $(p_1,\ldots,p_m)$. The package provides support for three different definitions:
 
 ### Scenario 1: tossing all the coins
 Considering constructing an $(m+2)$-sided die with the following probabilities of rolling $\{1,2\ldots,m+2\}$.

@@ -4,6 +4,10 @@
 .Ruserdata
 vignettes/DiceEnterprise_cache
 temp
-inst/doc
 vignettes/Efficiency_cache
 tests
+vignettes/efficiency_old_res
+inst/doc
+vignettes/*.rds
+augmented_de_a_1_pest_0.01.rds
+vignettes/efficiency_uni_data

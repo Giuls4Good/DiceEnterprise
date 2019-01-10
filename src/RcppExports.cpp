@@ -19,19 +19,40 @@ BEGIN_RCPP
 END_RCPP
 }
 // updateFunCpp
-int updateFunCpp(int currentState, arma::uvec B, arma::vec U, bool connected, bool fine, List P_cumsum, List P_moves_list);
+int updateFunCpp(int currentState, const arma::uvec& B, const arma::vec& U, bool connected, bool fine, const List& P_cumsum, const List& P_moves_list);
 RcppExport SEXP _DiceEnterprise_updateFunCpp(SEXP currentStateSEXP, SEXP BSEXP, SEXP USEXP, SEXP connectedSEXP, SEXP fineSEXP, SEXP P_cumsumSEXP, SEXP P_moves_listSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< int >::type currentState(currentStateSEXP);
-    Rcpp::traits::input_parameter< arma::uvec >::type B(BSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type U(USEXP);
+    Rcpp::traits::input_parameter< const arma::uvec& >::type B(BSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type U(USEXP);
     Rcpp::traits::input_parameter< bool >::type connected(connectedSEXP);
     Rcpp::traits::input_parameter< bool >::type fine(fineSEXP);
-    Rcpp::traits::input_parameter< List >::type P_cumsum(P_cumsumSEXP);
-    Rcpp::traits::input_parameter< List >::type P_moves_list(P_moves_listSEXP);
+    Rcpp::traits::input_parameter< const List& >::type P_cumsum(P_cumsumSEXP);
+    Rcpp::traits::input_parameter< const List& >::type P_moves_list(P_moves_listSEXP);
     rcpp_result_gen = Rcpp::wrap(updateFunCpp(currentState, B, U, connected, fine, P_cumsum, P_moves_list));
+    return rcpp_result_gen;
+END_RCPP
+}
+// updateFunVecCpp
+arma::rowvec updateFunVecCpp(const arma::vec& states, const arma::uvec& B, const arma::vec& U, bool connected, bool fine, const List& P_cumsum, const List& P_moves_list, const arma::vec& mapped_states, int k, int t_mapped_states, int current_time);
+RcppExport SEXP _DiceEnterprise_updateFunVecCpp(SEXP statesSEXP, SEXP BSEXP, SEXP USEXP, SEXP connectedSEXP, SEXP fineSEXP, SEXP P_cumsumSEXP, SEXP P_moves_listSEXP, SEXP mapped_statesSEXP, SEXP kSEXP, SEXP t_mapped_statesSEXP, SEXP current_timeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::vec& >::type states(statesSEXP);
+    Rcpp::traits::input_parameter< const arma::uvec& >::type B(BSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type U(USEXP);
+    Rcpp::traits::input_parameter< bool >::type connected(connectedSEXP);
+    Rcpp::traits::input_parameter< bool >::type fine(fineSEXP);
+    Rcpp::traits::input_parameter< const List& >::type P_cumsum(P_cumsumSEXP);
+    Rcpp::traits::input_parameter< const List& >::type P_moves_list(P_moves_listSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type mapped_states(mapped_statesSEXP);
+    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< int >::type t_mapped_states(t_mapped_statesSEXP);
+    Rcpp::traits::input_parameter< int >::type current_time(current_timeSEXP);
+    rcpp_result_gen = Rcpp::wrap(updateFunVecCpp(states, B, U, connected, fine, P_cumsum, P_moves_list, mapped_states, k, t_mapped_states, current_time));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -67,12 +88,25 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// expected_tosses_bound_cpp
+double expected_tosses_bound_cpp(arma::mat A);
+RcppExport SEXP _DiceEnterprise_expected_tosses_bound_cpp(SEXP ASEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type A(ASEXP);
+    rcpp_result_gen = Rcpp::wrap(expected_tosses_bound_cpp(A));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_DiceEnterprise_findIntervalSingle", (DL_FUNC) &_DiceEnterprise_findIntervalSingle, 2},
     {"_DiceEnterprise_updateFunCpp", (DL_FUNC) &_DiceEnterprise_updateFunCpp, 7},
+    {"_DiceEnterprise_updateFunVecCpp", (DL_FUNC) &_DiceEnterprise_updateFunVecCpp, 11},
     {"_DiceEnterprise_CFTPCpp", (DL_FUNC) &_DiceEnterprise_CFTPCpp, 10},
     {"_DiceEnterprise_construct_discrete_simplex", (DL_FUNC) &_DiceEnterprise_construct_discrete_simplex, 2},
+    {"_DiceEnterprise_expected_tosses_bound_cpp", (DL_FUNC) &_DiceEnterprise_expected_tosses_bound_cpp, 1},
     {NULL, NULL, 0}
 };
 

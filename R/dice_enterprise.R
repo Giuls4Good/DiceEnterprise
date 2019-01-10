@@ -62,6 +62,7 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
       private$ladder_fine_connected <- aux[["obj"]]
       private$A_fine_connected <- aux[["A"]]
       private$check.efficiency.condition() #Check if efficiency condition is satisfied
+      private$d <- private$ladder_fine_connected$get.degree()
       if(verbose) {cat("DONE! \n")}
     },
     print = function() {
@@ -200,16 +201,27 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
     get.ladder.initial = function() {private$ladder_initial$clone()},
     get.ladder.fine.connected = function() {private$ladder_fine_connected$clone()},
     get.efficiency.condition = function() {private$efficiency_condition},
+    expected.tosses.bound.generic = function() {
+      #This bound is independent on p
+      warning("This bound is not theoretically valid.")
+      if(private$m > 2) {
+        stop("The expected number of tosses is computable only when the original die has 2 faces.")
+      }
+      P <- private$ladder_fine_connected$get.P()
+      a <- min(P[which(P > 0)], na.rm = TRUE)
+      k <-  private$ladder_fine_connected$get.k()
+      return(private$m^(private$d-1)/(a^(private$d)))
+    },
     expected.tosses.bound = function(true_p) {
       #This method computed the expected tosses required by CFTP for a given p.
-      #Works only when m = 2.
+      #Works only when m = 2 and the efficiency condition is satisfied.
       #true_p = (p,1-p)
       if(private$m > 2) {
         stop("The expected number of tosses is computable only when the original die has 2 faces.")
       }
-      # if(!private$efficiency_condition) {
-      #   stop("The bound can be obtained only when the efficiency condition is satisfied. TRy to increase the degree of the ladder.")
-      # }
+      if(!private$efficiency_condition) {
+        stop("The bound can be obtained only when the efficiency condition is satisfied. Try to increase the degree of the ladder.")
+      }
       stopifnot(is.numeric(true_p), length(true_p) == private$m, isTRUE(all.equal(1,sum(true_p))))
       #The expected number of tosses is computed by using a telescopic sum
       #E[D_t^(1,k)] = sum E[D_t^(n,n+1)]
@@ -225,90 +237,217 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
 
       #Generate matrix of coefficients (with right order)
       P <- matrix(0, nrow = k, ncol = k)
+      P_coeff <- matrix(0, nrow = k, ncol = k) #just coefficients without p
       for(i in 1:k) {
-        if(i > 1) {P[i,i-1] <- (1-p)*R[i-1]/max(R[i-1],R[i])}
-        if(i < k) {P[i,i+1] <- p*R[i+1]/max(R[i],R[i+1])}
-      }
-      exp_distance <- numeric(k-1) #Vector of expected distances between coupled particles
-      new_exp_distance <- numeric(k-1)
-      new_exp_distance2 <- numeric(k-1)
-      exp_tosses <- 0
-      new_exp_tosses <- Inf
-      t <- 1
-
-      while(new_exp_tosses - exp_tosses > 1e-6) {
-        if(t > 1) {exp_tosses <- new_exp_tosses}
-        for(i in 1:(k-1)) {
-          if(t == 1) {
-            #Expected distance after first time step
-
-            # THIS IS VALID ONLY IF THE EFFICIENCY CONDITION IS SATISFIED:
-            # if(i == 1 && k >= 3) {new_exp_distance[i] <- 1 - (P[i,i+1] - P[i+1,i+2]) - (P[i+1,i] - 0) }
-            # else if(i == 1) {new_exp_distance[i] <- 1 - (P[i,i+1] - 0) - (P[i+1,i] - 0) }
-            # else if(i == k-1) {new_exp_distance[i] <- 1 - (P[i,i+1] - 0) - (P[i+1,i] - P[i,i-1])}
-            # else {new_exp_distance[i] <- 1 - (P[i,i+1] - P[i+1,i+2]) - (P[i+1,i] - P[i,i-1])}
-
-            # THIS IS ALWAYS VALID:
-            if(i == 1 && k >= 3) { new_exp_distance[i] <- 2*(max(0,P[i+1,i+2] - P[i,i+1]) + max(0,0 - P[i+1,i])) +
-              1*(1-(max(0,P[i+1,i+2] - P[i,i+1]) + max(0,0 - P[i+1,i]) +
-                      max(0, P[i,i+1] - P[i+1,i+2]) + max(0,P[i+1,i] - 0))) }
-            else if(i == 1) {new_exp_distance[i] <- 2*(max(0,0 - P[i,i+1]) + max(0,0 - P[i+1,i])) +
-              1*(1-(max(0,0 - P[i,i+1]) + max(0,0 - P[i+1,i]) +
-                      max(0, P[i,i+1] - 0) + max(0,P[i+1,i] - 0)))}
-            else if(i == k-1) {new_exp_distance[i] <- 2*(max(0,0 - P[i,i+1]) + max(0,P[i,i-1] - P[i+1,i])) +
-              1*(1-(max(0,0 - P[i,i+1]) + max(0,P[i,i-1] - P[i+1,i]) +
-                      max(0, P[i,i+1] - 0) + max(0,P[i+1,i] - P[i,i-1])))}
-            else {new_exp_distance[i] <- 2*(max(0,P[i+1,i+2] - P[i,i+1]) + max(0,P[i,i-1] - P[i+1,i])) +
-              1*(1-(max(0,P[i+1,i+2] - P[i,i+1]) + max(0,P[i,i-1] - P[i+1,i]) +
-                      max(0, P[i,i+1] - P[i+1,i+2]) + max(0,P[i+1,i] - P[i,i-1])))
-            }
-
-          } else {
-            #Expected distance after more than one time step
-
-            # THIS IS VALID ONLY IF THE EFFICIENCY CONDITION IS SATISFIED:
-            # if(i == 1 && k>= 3) {new_exp_distance[i] <- P[i+1,i+2]*exp_distance[i+1] +
-            #   (1-P[i,i+1]-P[i+1,i])*exp_distance[i] }
-            # else if(i == 1) {new_exp_distance[i] <-(1-P[i,i+1]+P[i+1,i])*exp_distance[i]}
-            # else if(i == k-1) {new_exp_distance[i] <- P[i,i-1]*exp_distance[i-1] +
-            #   (1-P[i,i+1]-P[i+1,i])*exp_distance[i]}
-            # else {new_exp_distance[i] <- P[i+1,i+2]*exp_distance[i+1] +
-            #   P[i,i-1]*exp_distance[i-1] +
-            #   (1-P[i,i+1]-P[i+1,i])*exp_distance[i]}
-
-            # THIS IS ALWAYS VALID:
-            if(i == 1 && k >= 3) {new_exp_distance[i] <- max(P[i+1,i+2]-P[i,i+1],0)*(exp_distance[i]+exp_distance[i+1]) +
-              max(0-P[i+1,i],0)*(0+exp_distance[i]) +
-              min(P[i,i+1],P[i+1,i+2])*exp_distance[i+1] +
-              min(0,P[i+1,i])*0 +
-              (1-max(P[i+1,i+2]-P[i,i+1],0)-max(0-P[i+1,i],0)-min(P[i,i+1],P[i+1,i+2])-min(0,P[i+1,i])-max(P[i,i+1]-P[i+1,i+2],0)-max(P[i+1,i]-0,0))*exp_distance[i]}
-            else if(i == 1) {new_exp_distance[i] <- max(0-P[i,i+1],0)*(exp_distance[i]+exp_distance[i+1]) +
-              max(0-P[i+1,i],0)*(0+exp_distance[i]) +
-              min(P[i,i+1],0)*exp_distance[i+1] +
-              min(0,P[i+1,i])*0 +
-              (1-max(0-P[i,i+1],0)-max(0-P[i+1,i],0)-min(P[i,i+1],0)-min(0,P[i+1,i])-max(P[i,i+1]-0,0)-max(P[i+1,i]-0,0))*exp_distance[i]}
-            else if(i == k-1) {new_exp_distance[i] <- max(0-P[i,i+1],0)*(exp_distance[i]+0) +
-              max(P[i,i-1]-P[i+1,i],0)*(exp_distance[i-1]+exp_distance[i]) +
-              min(P[i,i+1],0)*0 +
-              min(P[i,i-1],P[i+1,i])*exp_distance[i-1] +
-              (1-max(0-P[i,i+1],0)-max(P[i,i-1]-P[i+1,i],0)-min(P[i,i+1],0)-min(P[i,i-1],P[i+1,i])-max(P[i,i+1]-0,0)-max(P[i+1,i]-P[i,i-1],0))*exp_distance[i]}
-            else { new_exp_distance[i] <- max(P[i+1,i+2]-P[i,i+1],0)*(exp_distance[i]+exp_distance[i+1]) +
-              max(P[i,i-1]-P[i+1,i],0)*(exp_distance[i-1]+exp_distance[i]) +
-              min(P[i,i+1],P[i+1,i+2])*exp_distance[i+1] +
-              min(P[i,i-1],P[i+1,i])*exp_distance[i-1] +
-              (1-max(P[i+1,i+2]-P[i,i+1],0)-max(P[i,i-1]-P[i+1,i],0)-min(P[i,i+1],P[i+1,i+2])-min(P[i,i-1],P[i+1,i])-max(P[i,i+1]-P[i+1,i+2],0)-max(P[i+1,i]-P[i,i-1],0))*exp_distance[i]}
-
-          }
-
+        if(i > 1) {
+          P[i,i-1] <- (1-p)*R[i-1]/max(R[i-1],R[i])
+          P_coeff[i,i-1] <- R[i-1]/max(R[i-1],R[i])
         }
-        #Update exp_distance
-        exp_distance <- new_exp_distance
-        #Compute new expected # tosses
-        new_exp_tosses <- exp_tosses + sum(new_exp_distance)
-        t <- t+1
+        if(i < k) {
+          P[i,i+1] <- p*R[i+1]/max(R[i],R[i+1])
+          P_coeff[i,i+1] <- R[i+1]/max(R[i],R[i+1])
+        }
       }
-      if(new_exp_tosses == 0) {new_exp_tosses <- 1}
+
+      #Construct tridiagonal matrix
+      if(k == 2) {
+        #there are only two states
+        A <- matrix(1-P[1,2]-P[2,1], nrow=1, ncol = 1)
+      } else {
+        A <- diag(sapply(1:(k-1), function(i) {(1-P[i,i+1]-P[i+1,i])}))
+        #Fill upper off-diagonal
+        A[row(A) == (col(A) - 1)] <- sapply(1:(k-2), function(i) {P[i+1,i+2]})
+        #Fill lower off-diagonal
+        A[row(A) == (col(A) + 1)] <- sapply(2:(k-1), function(i) {P[i,i-1]})
+      }
+
+      #Spectral decomposition of the matrix (to compute exponentiation
+      # more quickly)
+      # eigen_decomp <- eigen(A)
+      # Q <- Re(eigen_decomp$vectors)
+      # Qinv <- solve(Q)
+      # D <- Re(eigen_decomp$values)
+      # exp_tosses <- 0
+      # new_exp_tosses <- 1
+      # t <- 1
+      # while(new_exp_tosses - exp_tosses > 1e-4) {
+      #   if(t > 1) {exp_tosses <- new_exp_tosses}
+      #   new_exp_tosses <- exp_tosses + sum(Q%*%diag(D^t, nrow = length(D))%*%Qinv)
+      #   t <- t+1
+      # }
+      new_exp_tosses <- expected_tosses_bound_cpp(A) #C++ implementation
+
       return(new_exp_tosses)
+
+      # OLD:
+      # exp_distance <- numeric(k-1) #Vector of expected distances between coupled particles
+      # new_exp_distance <- numeric(k-1)
+      # new_exp_distance2 <- numeric(k-1)
+      # exp_tosses <- 0
+      # new_exp_tosses <- Inf
+      # t <- 1
+      #
+      # while(new_exp_tosses - exp_tosses > 1e-6) {
+      #   if(t > 1) {exp_tosses <- new_exp_tosses}
+      #   for(i in 1:(k-1)) {
+      #     if(t == 1) {
+      #       #Expected distance after first time step
+      #
+      #       # THIS IS VALID ONLY IF THE EFFICIENCY CONDITION IS SATISFIED:
+      #       # if(i == 1 && k >= 3) {new_exp_distance[i] <- 1 - (P[i,i+1] - P[i+1,i+2]) - (P[i+1,i] - 0) }
+      #       # else if(i == 1) {new_exp_distance[i] <- 1 - (P[i,i+1] - 0) - (P[i+1,i] - 0) }
+      #       # else if(i == k-1) {new_exp_distance[i] <- 1 - (P[i,i+1] - 0) - (P[i+1,i] - P[i,i-1])}
+      #       # else {new_exp_distance[i] <- 1 - (P[i,i+1] - P[i+1,i+2]) - (P[i+1,i] - P[i,i-1])}
+      #
+      #       # THIS IS ALWAYS VALID:
+      #       if(i == 1 && k >= 3) { new_exp_distance[i] <- 2*(max(0,P[i+1,i+2] - P[i,i+1]) + max(0,0 - P[i+1,i])) +
+      #         1*(1-(max(0,P[i+1,i+2] - P[i,i+1]) + max(0,0 - P[i+1,i]) +
+      #                 max(0, P[i,i+1] - P[i+1,i+2]) + max(0,P[i+1,i] - 0))) }
+      #       else if(i == 1) {new_exp_distance[i] <- 2*(max(0,0 - P[i,i+1]) + max(0,0 - P[i+1,i])) +
+      #         1*(1-(max(0,0 - P[i,i+1]) + max(0,0 - P[i+1,i]) +
+      #                 max(0, P[i,i+1] - 0) + max(0,P[i+1,i] - 0)))}
+      #       else if(i == k-1) {new_exp_distance[i] <- 2*(max(0,0 - P[i,i+1]) + max(0,P[i,i-1] - P[i+1,i])) +
+      #         1*(1-(max(0,0 - P[i,i+1]) + max(0,P[i,i-1] - P[i+1,i]) +
+      #                 max(0, P[i,i+1] - 0) + max(0,P[i+1,i] - P[i,i-1])))}
+      #       else {new_exp_distance[i] <- 2*(max(0,P[i+1,i+2] - P[i,i+1]) + max(0,P[i,i-1] - P[i+1,i])) +
+      #         1*(1-(max(0,P[i+1,i+2] - P[i,i+1]) + max(0,P[i,i-1] - P[i+1,i]) +
+      #                 max(0, P[i,i+1] - P[i+1,i+2]) + max(0,P[i+1,i] - P[i,i-1])))
+      #       }
+      #
+      #     } else {
+      #       #Expected distance after more than one time step
+      #
+      #       # THIS IS VALID ONLY IF THE EFFICIENCY CONDITION IS SATISFIED:
+      #       # if(i == 1 && k>= 3) {new_exp_distance[i] <- P[i+1,i+2]*exp_distance[i+1] +
+      #       #   (1-P[i,i+1]-P[i+1,i])*exp_distance[i] }
+      #       # else if(i == 1) {new_exp_distance[i] <-(1-P[i,i+1]+P[i+1,i])*exp_distance[i]}
+      #       # else if(i == k-1) {new_exp_distance[i] <- P[i,i-1]*exp_distance[i-1] +
+      #       #   (1-P[i,i+1]-P[i+1,i])*exp_distance[i]}
+      #       # else {new_exp_distance[i] <- P[i+1,i+2]*exp_distance[i+1] +
+      #       #   P[i,i-1]*exp_distance[i-1] +
+      #       #   (1-P[i,i+1]-P[i+1,i])*exp_distance[i]}
+      #
+      #       # THIS IS ALWAYS VALID:
+      #       if(i == 1 && k >= 3) {new_exp_distance[i] <- max(P[i+1,i+2]-P[i,i+1],0)*(exp_distance[i]+exp_distance[i+1]) +
+      #         max(0-P[i+1,i],0)*(0+exp_distance[i]) +
+      #         min(P[i,i+1],P[i+1,i+2])*exp_distance[i+1] +
+      #         min(0,P[i+1,i])*0 +
+      #         (1-max(P[i+1,i+2]-P[i,i+1],0)-max(0-P[i+1,i],0)-min(P[i,i+1],P[i+1,i+2])-min(0,P[i+1,i])-max(P[i,i+1]-P[i+1,i+2],0)-max(P[i+1,i]-0,0))*exp_distance[i]}
+      #       else if(i == 1) {new_exp_distance[i] <- max(0-P[i,i+1],0)*(exp_distance[i]+exp_distance[i+1]) +
+      #         max(0-P[i+1,i],0)*(0+exp_distance[i]) +
+      #         min(P[i,i+1],0)*exp_distance[i+1] +
+      #         min(0,P[i+1,i])*0 +
+      #         (1-max(0-P[i,i+1],0)-max(0-P[i+1,i],0)-min(P[i,i+1],0)-min(0,P[i+1,i])-max(P[i,i+1]-0,0)-max(P[i+1,i]-0,0))*exp_distance[i]}
+      #       else if(i == k-1) {new_exp_distance[i] <- max(0-P[i,i+1],0)*(exp_distance[i]+0) +
+      #         max(P[i,i-1]-P[i+1,i],0)*(exp_distance[i-1]+exp_distance[i]) +
+      #         min(P[i,i+1],0)*0 +
+      #         min(P[i,i-1],P[i+1,i])*exp_distance[i-1] +
+      #         (1-max(0-P[i,i+1],0)-max(P[i,i-1]-P[i+1,i],0)-min(P[i,i+1],0)-min(P[i,i-1],P[i+1,i])-max(P[i,i+1]-0,0)-max(P[i+1,i]-P[i,i-1],0))*exp_distance[i]}
+      #       else { new_exp_distance[i] <- max(P[i+1,i+2]-P[i,i+1],0)*(exp_distance[i]+exp_distance[i+1]) +
+      #         max(P[i,i-1]-P[i+1,i],0)*(exp_distance[i-1]+exp_distance[i]) +
+      #         min(P[i,i+1],P[i+1,i+2])*exp_distance[i+1] +
+      #         min(P[i,i-1],P[i+1,i])*exp_distance[i-1] +
+      #         (1-max(P[i+1,i+2]-P[i,i+1],0)-max(P[i,i-1]-P[i+1,i],0)-min(P[i,i+1],P[i+1,i+2])-min(P[i,i-1],P[i+1,i])-max(P[i,i+1]-P[i+1,i+2],0)-max(P[i+1,i]-P[i,i-1],0))*exp_distance[i]}
+      #
+      #     }
+      #
+      #   }
+      #   #Update exp_distance
+      #   exp_distance <- new_exp_distance
+      #   #Compute new expected # tosses
+      #   new_exp_tosses <- exp_tosses + sum(new_exp_distance)
+      #   t <- t+1
+      # }
+      # if(new_exp_tosses == 0) {new_exp_tosses <- 1}
+      # return(new_exp_tosses)
+    },
+    expected.tosses.bound.loose = function() {
+      #This method computes a loose bound for the expected number
+      #of tosses when m=2 and the efficiency condition is satisfied
+      #independent on p
+
+      if(private$m > 2) {
+        stop("The expected number of tosses is computable only when the original die has 2 faces.")
+      }
+      if(!private$efficiency_condition) {
+        stop("The bound can be obtained only when the efficiency condition is satisfied. Try to increase the degree of the ladder.")
+      }
+
+      R <- private$ladder_fine_connected$get.R()
+      M <- private$ladder_fine_connected$get.M() #matrix of coefficients
+      R <- R[order(private$ladder_fine_connected$get.M()[,1]+1)] #Reorder coefficients
+      k <-  private$ladder_fine_connected$get.k()
+
+      #Generate matrix of coefficients (with right order)
+      P_coeff <- matrix(0, nrow = k, ncol = k) #just coefficients without p
+      for(i in 1:k) {
+        if(i > 1) {
+          P_coeff[i,i-1] <- R[i-1]/max(R[i-1],R[i])
+        }
+        if(i < k) {
+          P_coeff[i,i+1] <- R[i+1]/max(R[i],R[i+1])
+        }
+      }
+      #Find the i that minimises min(P_{i,i+1}-P_{i+1,i+2}, P_{i+1,i} - P_{i,i-1})
+      min_i <- 1
+      rho <- 1
+      for(i in 1:(k-1)) {
+        if(i == 1 && k > 2) {
+          val <- 1-min(P_coeff[i,i+1]-P_coeff[i+1,i+2], P_coeff[i+1,i])
+        } else if((i == 1 && k==2) || (i == k-1 && k == 2)) {
+          val <- 1-min(P_coeff[i,i+1], P_coeff[i+1,i])
+        } else if(i == k-1 && k > 2) {
+          val <- 1-min(P_coeff[i,i+1], P_coeff[i+1,i]-P_coeff[i,i-1])
+        } else {
+          val <- 1-min(P_coeff[i,i+1]-P_coeff[i+1,i+2], P_coeff[i+1,i]-P_coeff[i,i-1])
+        }
+
+        if(val < rho) {
+          min_i <- i
+          rho <- val
+        }
+      }
+
+      #The bound is (k-1)/(1-rho) where rho = 1-min(P_{i,i+1}-P_{i+1,i+2} + P_{i+1,i} - P_{i,i-1})
+      return((k-1)/(1-rho))
+
+    },
+    expected.tosses.extreme = function(p) {
+      browser()
+      if(private$m > 2) {
+        stop("The expected number of tosses is computable only when the original die has 2 faces.")
+      }
+      if(p != 0 && p != 1) {
+        stop("This method provides the exact expected value of tosses only for p=0 or p=1")
+      }
+
+      R <- private$ladder_fine_connected$get.R()
+      M <- private$ladder_fine_connected$get.M() #matrix of coefficients
+      R <- R[order(private$ladder_fine_connected$get.M()[,1]+1)] #Reorder coefficients
+      k <-  private$ladder_fine_connected$get.k()
+
+      #Generate matrix of coefficients (with right order)
+      P <- matrix(0, nrow = k, ncol = k)
+      P_coeff <- matrix(0, nrow = k, ncol = k) #just coefficients without p
+      for(i in 1:k) {
+        if(i > 1) {
+          P[i,i-1] <- (1-p)*R[i-1]/max(R[i-1],R[i])
+          P_coeff[i,i-1] <- R[i-1]/max(R[i-1],R[i])
+        }
+        if(i < k) {
+          P[i,i+1] <- p*R[i+1]/max(R[i],R[i+1])
+          P_coeff[i,i+1] <- R[i+1]/max(R[i],R[i+1])
+        }
+      }
+
+      if(p == 1) {
+        #Get the upper offdiagonal of P
+        P_offdiagonal <- P[row(P) == (col(P) - 1)]
+      } else {
+        #Get the lower offdiagonal of P
+        P_offdiagonal <- P[row(P) == (col(P) + 1)]
+      }
+      return(sum(1/P_offdiagonal))
     },
     increase.degree = function(d = 1,verbose=FALSE) {
       #We increase the degree of the dice enterprise by just applying the
@@ -328,7 +467,7 @@ DiceEnterprise <- R6::R6Class("DiceEnterprise",
       if(method == "bound") {original_bound <- self$expected.tosses.bound(true_p = true_p)}
       for(d in 1:threshold) {
         new_de <- self$increase.degree(d=d)
-        if(method == "efficiency_condition" && new_de$get.efficiency.condition()) {
+        if(method == "efficiency_condition" && isTRUE(new_de$get.efficiency.condition())) {
           return(new_de)
         } else if(method == "bound") {
           new_bound <- new_de$expected.tosses.bound(true_p = true_p)
