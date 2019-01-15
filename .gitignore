@@ -9,6 +9,7 @@ tests
 vignettes/efficiency_old_res
 vignettes/*.rds
 augmented_de_a_1_pest_0.01.rds
-vignettes/efficiency_uni_data
-vignettes/Eff*
 vignettes/PaPerExamples_cache
+vignettes/efficiency_old_res_2
+vignettes/Efficiency.Rmd
+vignettes/Efficiency2.Rmd

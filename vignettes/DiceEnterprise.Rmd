@@ -35,7 +35,7 @@ The Bernoulli Factory is a special case of this setting. In particular, assume a
 
 ## Bernoulli Factory
 
-The user can define a function that tosses a $p$-coin and returns $1$ with probability $p$ and 2 with probability $1-p$ (notice that **it should not return 1 or 0**). The function should have as input the number `n` of required tosses.  For instance the following function tosses a $\frac{3}{4}$-coin
+The user can define a function that tosses a $p$-coin and returns $1$ with probability $p$ and 2 with probability $1-p$ (notice that it **must** return 1 and 2). The function should have as input the number `n` of required tosses.  For instance the following function tosses a $\frac{3}{4}$-coin
 ```{r toss_coin}
 toss_coin <- function(n) {
   sample(1:2, size = n, replace = TRUE, prob = c(3/4,1/4))
@@ -95,6 +95,17 @@ Notice that the package supports only functions defined from $(0,1)$ to $[0,1]$ 
 bf_amp <- BernoulliFactory$new(f_1 = list(2,1), f_2 = list(c(1,-2),c(0,1)))
 ```
 
+When the function reaches close 1 or 0 within the interval $p \in (0,1)$, the construction of the ladder is computationally difficult and a runtime error may occur. Take for instance $f(p) = (x-1/2)^2 + 0.999$. The user can increase the timeout threshold by specifying the parameter threshold when constructing the BernoulliFactory object (default 100 iterations).
+
+```{r bf_threshold, error=TRUE}
+bf_error <- BernoulliFactory$new(f_1 = list(c(-1,1,0.749),c(2,1,0)), 
+                                 f_2 = list(c(1,-1,0.251),c(2,1,0)))
+bf_no_error <- BernoulliFactory$new(f_1 = list(c(-1,1,0.749),c(2,1,0)), 
+                                 f_2 = list(c(1,-1,0.251),c(2,1,0)),
+                                 threshold = 500)
+```
+
+<!--
 ### Alternative sampling algorithm
 
 For Bernoulli Factory type problems (where $m = 2$) it is possible to use an alternative algorithm to get a sample based on acceptance-rejection. 
@@ -116,57 +127,7 @@ If instead of a function that tosses the original coin, the true value of $p$ is
 fp_tosses_AR3 <- bf$sample.AR(n = 1000, true_p = c(3/4,1/4), verbose = TRUE)
 print(paste0("Theoretical number of tosses required: ",mean(fp_tosses_AR3$theor_tosses)))
 ```
-
-### Example: Logistic Bernoulli Factory
-
-Consider the function as in Huber
-$$
-f(p) = \frac{Cp}{1+Cp}
-$$
-Huber proposes a very clever algorithm that makes use of a thinned Poisson point process and requires on average $C/(1+Cp)$ tosses. If my calculations are correct, the Dice Enterprise can construct a Bernoulli Factory that albeit being always worse, requires at most one extra toss on average. Let's check this:
-
-```{r bf_logistic}
-toss.coin.logistic <- function(n,p) {
-  sample(1:2, size = n, replace = TRUE, prob = c(p,1-p))
-}
-C <- 10
-p <- 0.01
-size_sample <- 10000
-
-bf_logistic <- BernoulliFactory$new(f_1 = list(C,1), f_2 = list(1,0))
-res <- bf_logistic$sample(n = size_sample, roll.fun = toss.coin.logistic, num_cores = 2, verbose = TRUE, p=p)
-
-mean_Huber <- C/(1+C*p)
-print(mean_Huber) #Mean of Huber Algorithm
-print((1+C)/(1+C*p))  #Mean of Dice Enterprise
-print(mean(res[[2]]))
-
-#CHECK IF IT IS CORRECT
-table(res[[1]])/size_sample
-print(c(C*p/(1+C*p), 1/(1+C*p)))
-
-
-```
-```{r bf_Huber_A, echo=FALSE,eval=FALSE}
-#Algorithm A of Huber for function 
-#f(p) = Cp(1-(Cp)^(m-1))/(1-(Cp)^m) where m=5
-m <- 5
-bf_A <- BernoulliFactory$new(f_1 = list(coeff = 10^seq(m,2), power = seq(m-1,1)),
-                             f_2 = list(coeff = c(10), power = c(0)))
-
-size_sample <- 10000
-res_A <- bf_A$sample(n = size_sample, roll.fun = toss.coin.logistic, num_cores = 2, verbose = TRUE, p=p)
-
-mean_Huber_A <- C*(m-1)
-print(mean_Huber_A) #Mean of Huber Algorithm
-print(mean(res_A[[2]])) #Empirical mean of dice enterprise
-
-
-#Check correctness
-table(res_A[[1]])/size_sample
-print(bf_A$evaluate(p))
-```
-
+-->
 
 ## Dice Enterprise
 The procedure is similar to the previous. Assume that the given function $f(\boldsymbol{p}): \Delta^m \rightarrow \Delta^v$ is 
@@ -174,8 +135,10 @@ $$
 f(p_1,p_2,p_3) \propto (p_1p_2^2+\sqrt{2}p_2^2p_3^2, 4p_1^4p_2^7+1/2+3p_1p_2^2p_3^3,7p_1p_2^3p_3^4+2p_3^2)
 $$
 The user needs to define a list that specify the polymomial $f(\boldsymbol{p})$. Each element corresponds to $f_i(\boldsymbol{p})$ and each of this function is determined by a list itself containing two elements:
+
 1. A vector of the coefficients (as in the Bernoulli Factory case)
-2. A matrix or a vector of string defining the power of the variables. If a matrix is given, it has to have $m$ columns and each row defines the power of $p_1,p_2,\ldots,p_m$ respectively. For instance $p_1p_2^2+\sqrt{2}p_2^2p_3^2$ is translated into the matrix 
+2. A matrix or a vector of string defining the power of the variables. If a matrix is given, it has to have $m$ columns and each row defines the power of $p_1,p_2,\ldots,p_m$ respectively.
+For instance $p_1p_2^2+\sqrt{2}p_2^2p_3^2$ is translated into the matrix 
 $$
 \begin{bmatrix}
 1 & 2 & 0 \\
@@ -249,7 +212,7 @@ plot.confidence.interval(sample_ex2[[1]],de_ex2$evaluate(true_prob_original_die)
 
 ## Independent coins
 
-Assume that instead of an $m$-sided die, $m$ independent coins are given, each one with its own probability of landing heads and denoted by $p_i$. In general, $(p_1,\ldots,p_m) \not\in \Delta^m$. Consider as an example, that we have access to 3 independent coins of biases $(0.4,0.7,0.55)$ and wish to sample from the distribution $f(\boldsymbol{p}) = \frac{1}{p_1+p_2+p_3}\left(p_1,p_2,p_3\right) = (8/33,14/33,1/3)$. There are several ways to define a die whose probabilites are a function of $(p_1,\ldots,p_m)$. The package provides support for three different definitions:
+Assume that instead of an $m$-sided die, $m$ independent coins are given, each one with its own probability of landing heads and denoted by $p_i$. In general, $(p_1,\ldots,p_m) \not\in \Delta^m$. Consider as an example, that we have access to 3 independent coins of biases $(0.4,0.7,0.55)$ and wish to sample from the distribution $f(\boldsymbol{p}) = \frac{1}{p_1+p_2+p_3}\left(p_1,p_2,p_3\right) = (8/33,14/33,1/3)$. There are several ways to define a die whose probabilites are a function of $(p_1,\ldots,p_m)$. The package provides native support for three different definitions:
 
 ### Scenario 1: tossing all the coins
 Considering constructing an $(m+2)$-sided die with the following probabilities of rolling $\{1,2\ldots,m+2\}$.

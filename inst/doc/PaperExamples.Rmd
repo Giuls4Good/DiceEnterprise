@@ -2,7 +2,9 @@
 title: "Reproducing Paper Examples"
 author: "Giulio Morina"
 date: "`r Sys.Date()`"
-output: rmarkdown::html_vignette
+output: 
+  rmarkdown::html_vignette:
+    toc: true
 vignette: >
   %\VignetteIndexEntry{Main examples}
   %\VignetteEngine{knitr::rmarkdown}
@@ -23,14 +25,14 @@ require("xtable")
 set.seed(10,"L'Ecuyer-CMRG")
 ```
 
-## Example 1 - Bernoulli Factory
+## Example 1 - Toy Bernoulli Factory
 $$
 f(p) = \frac{\sqrt{2}p^3}{(\sqrt{2}-5)p^3+11p^2-9p+3}
 $$
 ```{r bf_settings}
 sample_size <- 1000 #Number of tosses
 probs_vec <- c(0.01,0.1,0.25,0.5,0.75,0.9,0.99) #Vector of true probabilities of the p-coin
-num_cores <- 4 #Number of cores used (parallel computing is not supported on Windows)
+num_cores <- 2 #Number of cores used (parallel computing is not supported on Windows)
 conf_level <- 0.95 #Confidence interval level
 ```
 
@@ -80,68 +82,66 @@ pandoc.table(bf_res)
   xtable(bf_res, align = c("l|",rep("c",ncol(bf_res))))
 ```
 
-## Example 2 - Logistic Bernoulli Factory
-
+## Example 2 - Efficiency of Monotonic CFTP
+We consider the ladder
 $$
-f(p) = \frac{Cp}{1+Cp}
+\pi(p) \propto ((1-p)^4,1000p(1-p)^3,p^2(1-p)^2,500p^3(1-p),p^4)
 $$
+and show that increasing the degree of the ladder leads to better performance in terms of the expected number of tosses of the $p$-coin.
 
-```{r bf_logistic_setting}
-constants <- c(0.1,1,10,100)
-```
-
-```{r bf_logistic, echo=FALSE, results='asis'}
-res_logistic <- vector("list",length(constants))
-counter <- 1
-for(C in constants) {
-bf_logistic <- BernoulliFactory$new(f_1 = list(coeff = c(C), power = c(1)), 
-                           f_2 = list(coeff = c(1), power = c(0))) 
-res_logistic[[counter]] <- bf.res(toss.coin,bf_logistic)
-exp_tosses_Huber <- C/(1+C*probs_vec)
-exp_tosses_CFTP <- (1+C)/(1+C*probs_vec)
-res_logistic[[counter]] <- rbind(rep(C,ncol(res_logistic[[counter]])),res_logistic[[counter]],exp_tosses_CFTP,exp_tosses_Huber)
-rownames(res_logistic[[counter]])[c(1,nrow(res_logistic[[counter]])-1,nrow(res_logistic[[counter]]))] <- c("C","Exp.TossesCFTP","Exp.TossesHuber")
-counter <- counter + 1
-pandoc.table(res_logistic[[counter-1]])
-}
-
-```
-
-```{r bf_logistic2, echo = FALSE, eval = FALSE}
-# An interpretation of the resulting CFTP algorithm leads to the following algorithm
-# which is equivalent to Huber's algorithm in the average number of tosses required.
-# This is just to check if it is correct.
-
-bf.logistic.CFTP.smart <- function(n,C,p,toss.coin) {
-  res <- numeric(n)
-  tosses <- rep(0,n)
-  i <- 1
-  while(i <= n) {
-    U <- runif(1)
-    if(U <= 1/(1+C)) {
-      res[i] <- 0
-      i <- i+1
-    } else {
-      X <- toss.coin(1,p)
-      tosses[i] <- tosses[i] + 1
-      if(X == 1) {
-        res[i] <- X
-        i <- i+1
-      } 
+```{r bf_efficiency, echo=FALSE, results='asis'}
+R <- c(1,1000,1,500,1)
+max_increase_degree <- 2 #How much the degree of the original ladder is increased by
+original_ladder <- DiceEnterprise$new(list(
+  list(R[1], "04"),
+  list(R[2], "13"),
+  list(R[3], "22"),
+  list(R[4], "31"),
+  list(R[5], "40")
+))
+#Sample and get the empirical number of tosses required
+bf.res.eff <- function(toss.coin, original_ladder,max_increase_degree) {
+  #Prepare increased degree ladders
+  increased_ladders <- vector("list", length= max_increase_degree)
+  for(i in 1:max_increase_degree) {
+    increased_ladders[[i]] <- original_ladder$increase.degree(d=i)
+  }
+  #Prepare output
+  bf_res <- matrix(NA, nrow = max_increase_degree+1, ncol = length(probs_vec)+1)
+  rownames(bf_res) <- paste0("+",0:max_increase_degree)
+  colnames(bf_res) <- c(as.character(probs_vec),"Eff.Condition") #The last column is true if the efficiency condition is met
+  tot_rows <- length(probs_vec)*(max_increase_degree+1)
+  df_res <- data.frame(p=rep(NA,tot_rows),
+                     degree = rep(NA, tot_rows),
+                     empirical_tosses = rep(NA, tot_rows))
+  counter <- 1
+  #Compute
+  for(i in 1:length(probs_vec)) {
+    #Check if the result already exists
+    bf_res[1,i] <- mean(original_ladder$sample(n=sample_size, roll.fun = toss.coin, p = probs_vec[i], num_cores = num_cores, verbose = TRUE, double_time = FALSE)$exp_rolls)
+    bf_res[1,ncol(bf_res)] <- as.numeric(original_ladder$get.efficiency.condition())
+    df_res[counter,] <- c(probs_vec[i],0,bf_res[1,i])
+    counter <- counter + 1
+    for(deg in 1:max_increase_degree) {
+      bf_res[deg+1,i] <- mean(increased_ladders[[deg]]$sample(n=sample_size, roll.fun = toss.coin, p = probs_vec[i], num_cores = num_cores, verbose = TRUE, double_time = FALSE)$exp_rolls)
+      bf_res[deg+1,ncol(bf_res)] <- as.numeric(increased_ladders[[deg]]$get.efficiency.condition())
+      df_res[counter,] <- c(probs_vec[i],deg,bf_res[deg+1,i])
+      counter <- counter + 1
     }
   }
-  return(list(res=res,tosses=tosses))
+  return(list(bf_res,df_res))
 }
-
-C <- 10
-p <- 0.2
-results <- bf.logistic.CFTP.smart(1000,C,p,toss.coin)
-mean(results$res)
-print(C*p/(1+C*p))
-mean(results$tosses)
-print(C/(1+C*p)) #Theoretical number of tosses required
+if(!file.exists(paste0("saved_data/efficiency_mono_cftp_example_n_",sample_size,".rds"))) {
+  aux <- bf.res.eff(toss.coin,original_ladder,max_increase_degree)
+  #Save the result
+  saveRDS(list(aux=aux),file=paste0("saved_data/efficiency_mono_cftp_example_n_",sample_size,".rds"))
+} else {
+  aux <- readRDS(paste0("saved_data/efficiency_mono_cftp_example_n_",sample_size,".rds"))$aux
+}
+bf_res <- aux[[1]]
+print(bf_res)
+pandoc.table(bf_res)
 ```
-
 
 
 ## Example 3 - Dice Enterprise
@@ -149,6 +149,7 @@ print(C/(1+C*p)) #Theoretical number of tosses required
 $$
 \pi(p_1,p_2,p_3) \propto \left(\sqrt{2}p_1^3,p_1^2p_3,\frac{1}{4}p_1p_2^2,2p_1p_2p_3,\frac{1}{2}p_1p_3^2,\frac{3}{4}p_2^2p_3\right)
 $$
+
 ```{r de_setup}
 sample_size <- 1000 #Number of rolls
 probs_mat <- matrix(c(1/5,1/4,11/20,
@@ -198,122 +199,171 @@ for(i in 1:nrow(probs_mat)) {
 pandoc.table(de_res,split.tables=Inf)
 ```
 
-## Example 4 - Bernoulli race (independent coins)
+## Example 4 - Augmenting ladder (Bernoulli factory)
 
-See main vignette.
+We consider a ladder of the following form, where the true (unknown) $p$ is $1/2$:
+$$
+\pi(p) \propto \{p^{2a},p^a(1-p)^a,(1-p)^{2a}\}
+$$
+A naive approach similar to the 2-coin algorithm would be with probability $1/3$, toss a $p$-coin $2a$ times and output $1$ if all heads; with prob. $1/3$ toss a $p$-coin $2a$ times and output $1$ if the first $a$ are heads and the last $a$ tosses are tails;  with prob. $1/3$ toss a $p$-coin $2a$ times and output $1$ if all tails. This would require on average $\mathbb{E}_{p=1/2}[N] = 2^{2a}$.
 
-## Example 5 - 2-coin algorithm
-$$
-f(p) = \frac{c_1p_1}{c_1p_1+c_2p_2}, \qquad c_1, c_2 \geq 0
-$$
-When using the substitution $p_i = \frac{q_1}{q_1+q_{i+1}}, \qquad i \in \{1,2,\ldots,m\}$ (tossing all coins to produce an $m+2$ sided die), one gets
-$$
-f_{1}(\boldsymbol{q}) \propto (c_1q_1^2+c_1q_1q_3, c_2q_1^2+c_2q_1q_2)
-$$
-Instead, when substituing using $p_i = \frac{q_i}{1-\sum_{k=1}^{i-1}q_k}, \qquad i \in \{1,2,\ldots,m\}$ (tossing coins until first heads to produce an $m+1$ sided die), one gets
-$$
-f_2(\boldsymbol{q}) \propto (c_1q_1 -c_1q_1^2, c_2q_2)
-$$
+```{r high_power_univariate_ladder, results='hide', cache=FALSE}
+rm(list=ls())
+require("DiceEnterprise")
 
-```{r 2coin_alg, eval=FALSE, echo=FALSE, results='asis'}
-probs_sum <- c(1.9,1.8,1.5,2*2^(-seq(0,8))) #prob_sum = p_1+p_2 (and p_1 = p_2)
-probs_sum <- c(1.8, 1.5, 1, 0.2,0.02,0.002,0.0002) 
-sample_size <- 1000 #Number of tosses
-num_cores <- 2 #Number of cores used (parallel computing is not supported on Windows)
-conf_level <- 0.95 #Confidence interval level
+p <- 1/2 #True value of p
+a <- 10 #Exponent
+n <- 1000 #Size sample CFTP
+num_cores <- 4 #Number of cores used
+initial_seed <- 17 #Seed for RNG
+increase_degree <- 260 #How much the degree is increased
+de_list <- vector("list", length = increase_degree+1) #Store all the de objects
 
-indep_coin_probs <- matrix(NA, ncol = 2, nrow = length(probs_sum))
-for(i in 1:length(probs_sum)) {
-  indep_coin_probs[i,] <- c(probs_sum[i]/2,probs_sum[i]/2)
+set.seed(initial_seed, "L'Ecuyer-CMRG") 
+#Construct the ladder
+cat("Constructing the dice enterprise \n")
+  de <- DiceEnterprise$new(G=list(
+    list(1,matrix(c(2*a,0),nrow=1,ncol=2)),
+    list(1,matrix(c(a,a),nrow=1,ncol=2)),
+    list(1,matrix(c(0,2*a),nrow=1,ncol=2))
+  ))
+  de_list[[1]] <- de
+  cat("Constructing the augmented dice enterprises \n")
+  for(i in 1:increase_degree) {
+    #Check if it already exists
+    if(file.exists(paste0("efficiency_uni_data/ladder_a_",a,"_degree_",i,".rds"))) {
+      cat("Restoring previous work for degree +",i," \n")
+      prev_work <- readRDS(paste0("efficiency_uni_data/ladder_a_",a,"_degree_",i,".rds"))
+      de_list[[i+1]]  <- prev_work$de_aug
+    } else {
+      stop("WHAT?!")
+      cat("Constructing the augmented dice enterprises for +",i," \n")
+      if(i == 1) {
+        de_list[[i+1]] <- de$increase.degree(1)
+      } else {
+        de_list[[i+1]] <- de_list[[i-1]]$increase.degree(1)
+      }
+      #Save object
+      saveRDS(list(de_aug=de_list[[i+1]],i=i), file = paste0("efficiency_uni_data/ladder_a_",a,"_degree_",i,".rds"))
+    }
+  
 }
-const <- matrix(1, nrow = nrow(indep_coin_probs),  ncol=2, byrow = TRUE) #c1 = 1, c2 = 1
 
-toss.all.coins <- function(probs) {
-  return(sapply(probs, function(p) {sample(1:2, size = 1, prob = c(p,1-p))})) #1 or 2 (not 0))
-}
-toss.until.heads <- function(probs) {
-  m <- length(probs)
-  res <- rep(NA, m)
-  for(i in 1:m) {
-    res[i] <- sample(1:2, size = 1, prob = c(probs[i],1-probs[i]))
-    if(res[i] == 1) { break } #Stop loop if heads is obtained
-  }
-  return(res)
-}
-
-ce_2coins_all_tosses_res <- matrix(NA, nrow = 7, ncol = nrow(indep_coin_probs))
-rownames(ce_2coins_all_tosses_res) <- c("q","f(p)", "LowerCI", "Emp.f(p)", "UppCI", "Exp.Tosses", "Exp.Tosses2coinsAlg")
-colnames(ce_2coins_all_tosses_res) <- apply(indep_coin_probs, 1, paste, collapse = ", ")
-ce_2coins_until_heads_res <- matrix(NA, nrow = 7, ncol = nrow(indep_coin_probs)) 
-rownames(ce_2coins_until_heads_res) <- c("q","f(p)", "LowerCI", "Emp.f(p)", "UppCI", "Exp.Tosses", "Exp.Tosses2coinsAlg")
-colnames(ce_2coins_until_heads_res) <- apply(indep_coin_probs, 1, paste, collapse = ", ")
-
-for (i in 1:nrow(indep_coin_probs)) {
-  ce_2coins_allcoins <- CoinsEnterprise$new(list(
-  list(c(const[i,1],const[i,1]), c("2000","1010")),
-  list(c(const[i,2],const[i,2]), c("2000","1100"))
-), toss.coins = toss.all.coins, die_type = "toss_all")
-  ce_2coins_until_heads <- CoinsEnterprise$new(list(
-  list(c(const[i,1],-const[i,1]), c("100","200")),
-  list(c(const[i,2]), c("010"))
-), toss.coins = toss.until.heads, die_type = "first_heads")
-  sample_2coins_allcoins <- ce_2coins_allcoins$sample(n = sample_size, num_cores = num_cores, verbose = TRUE, double_time = FALSE, probs = indep_coin_probs[i,])
-  sample_2coins_untilheads <- ce_2coins_until_heads$sample(n = sample_size, num_cores = num_cores, verbose = TRUE, double_time = FALSE, probs = indep_coin_probs[i,])
-  
-  exp_2coin <- sum(const[i,])/sum(const[i,]*indep_coin_probs[i,])
-  average_tosses_allcoins <- length(indep_coin_probs[i,])*mean(sample_2coins_allcoins[[2]]) #2*number of rolls
-  average_tosses_untilheads <- (indep_coin_probs[i,1]+2*(1-indep_coin_probs[i,1]))*mean(sample_2coins_untilheads[[2]]) #Works only for two coins
-  
-  q_allcoins <- c(prod(indep_coin_probs[i,]), #Works only for three coins
-                  (1-indep_coin_probs[i,1])*indep_coin_probs[i,2],
-                  (1-indep_coin_probs[i,2])*indep_coin_probs[i,1])
-  q_allcoins[4] <- 1-sum(q_allcoins)
-  q_untileheads <- c(indep_coin_probs[i,1],
-                     (1-indep_coin_probs[i,1])*indep_coin_probs[i,2],
-                     (1-indep_coin_probs[i,1])*(1-indep_coin_probs[i,2]))
-  
-  #Fill case all tosses
-  #ce_2coins_all_tosses_res[1,i] <- paste0("(",paste0(q_allcoins, collapse = ", "),")")
-  ce_2coins_all_tosses_res[2,i] <- (const[i,1]*indep_coin_probs[i,1])/sum(const[i,]*indep_coin_probs[i,])
-  ce_2coins_all_tosses_res[4,i] <- 1-mean(sample_2coins_allcoins[[1]]-1)
-  ce_2coins_all_tosses_res[6,i] <- average_tosses_allcoins
-  ce_2coins_all_tosses_res[7,i] <- exp_2coin
-  
-  #Fill case until heads
-  #ce_2coins_until_heads_res[1,i] <- paste0("(",paste0(q_untileheads, collapse = ", "),")")
-  ce_2coins_until_heads_res[2,i] <- (const[i,1]*indep_coin_probs[i,1])/sum(const[i,]*indep_coin_probs[i,])
-  ce_2coins_until_heads_res[4,i] <- 1-mean(sample_2coins_untilheads[[1]]-1)
-  ce_2coins_until_heads_res[6,i] <- average_tosses_untilheads
-  ce_2coins_until_heads_res[7,i] <- exp_2coin
-  
-  #Confidence interval
-  if(length(unique(sample_2coins_allcoins[[1]])) > 1) {
-    #At least one of each result
-    ci_allcoins <- MultinomCI(table(sample_2coins_allcoins[[1]]),conf.level = conf_level)
-    ce_2coins_all_tosses_res[3,i] <- ci_allcoins[1,2]
-    ce_2coins_all_tosses_res[5,i] <- ci_allcoins[1,3]
-  }
-  if(length(unique(sample_2coins_untilheads[[1]])) > 1) {
-    #At least one of each result
-    ci_until_heads <- MultinomCI(table(sample_2coins_untilheads[[1]]),conf.level = conf_level)
-    ce_2coins_until_heads_res[3,i] <- ci_until_heads[1,2]
-    ce_2coins_until_heads_res[5,i] <- ci_until_heads[1,3]
+#For each ladder get empirical number of tosses and bound
+cat("Computing empirical number of tosses and bound \n")
+emp_tosses <- matrix(NA, nrow = n, ncol = increase_degree+1)
+emp_res <- matrix(NA, nrow = n, ncol = increase_degree+1)
+colnames(emp_tosses) <- paste0("+",0:increase_degree)
+colnames(emp_res) <- paste0("+",0:increase_degree)
+for(i in 0:increase_degree) {
+  #Check if it already exists
+  if(file.exists(paste0("efficiency_uni_data/n_",n,"_a_",a,"_degree_",i,".rds"))) {
+    cat("Restoring previous work for degree +",i," \n")
+    prev_work <- readRDS(paste0("efficiency_uni_data/n_",n,"_a_",a,"_degree_",i,".rds"))
+    emp_tosses[,i+1] <- prev_work$emp_tosses
+    emp_res[,i+1] <- prev_work$emp_res
+  } else {
+    cat("Getting empirical tosses for +",i," \n")
+    aux <- de_list[[i+1]]$sample(n=n, true_p = c(p,1-p), num_cores = num_cores, verbose = TRUE)
+    emp_tosses[,i+1] <- aux[[2]]
+    emp_res[,i+1] <- aux[[1]]
+    #Save object
+    saveRDS(list(emp_tosses=aux[[2]],emp_res=aux[[1]]), file = paste0("efficiency_uni_data/n_",n,"_a_",a,"_degree_",i,".rds"))
   }
 }
+```
 
-pandoc.table(ce_2coins_all_tosses_res, round = 2)
-pandoc.table(ce_2coins_until_heads_res, round = 2)
-
-ggplot() + geom_line(aes(x = probs_sum, y = log(ce_2coins_until_heads_res[6,])), color = "red") + geom_point(aes(x = probs_sum, y = log(ce_2coins_until_heads_res[6,])), color = "red")  + 
-  geom_line(aes(x = probs_sum, y = log(ce_2coins_until_heads_res[7,])), color = "blue") + geom_point(aes(x = probs_sum, y = log(ce_2coins_until_heads_res[7,])), color = "blue")
-
-ggplot() + geom_line(aes(x = probs_sum, y = ce_2coins_until_heads_res[7,]/ce_2coins_until_heads_res[6,]), color = "red")
+```{r high_power_univariate_ladder_print}
+#Prepare output
+res_output <- matrix(NA, nrow = 2, ncol = increase_degree+1)
+colnames(res_output) <- paste0("+",0:increase_degree)
+rownames(res_output) <- c("Exp.Tosses","Efficiency.Condition")
+res_output[1,] <- apply(emp_tosses,2,mean)
+res_output[2,] <- sapply(de_list, function(x) {x$get.efficiency.condition()})
+print(res_output)
 ```
 
 
-```{r bf_tex, eval = FALSE, echo = FALSE}
-bf_tex <- rbind(ce_2coins_all_tosses_res,ce_2coins_until_heads_res)
-bf_tex <- bf_tex[c(2:6,13,7),c(2,3,4,5:ncol(bf_tex))]
-xtable(bf_tex, align = c("l|",rep("c",ncol(bf_tex))))
+## Example 5 - Augmenting ladder (Dice enterprise)
+
+We consider a ladder of the following form, where the true (unknown) $\boldsymbol{p}=(p_1,p_2,p_3)$ is $(1/3,1/3,1/3)$:
+$$
+\pi(\boldsymbol{p}) \propto \{p_1^ap_2^ap_3^a,p_1^{3a},p_2^{3a},p_3^{3a}\}
+$$
+
+```{r high_power_multivariate_ladder, results='hide', cache=FALSE}
+rm(list=ls())
+require("DiceEnterprise")
+setwd("~/Dropbox/OxWaSP/Dice Enterprise/R/DiceEnterprise/vignettes") #Change accordingly
+
+true_p <- c(1/3,1/3,1/3) #True value of p
+a <- 5 #Exponent
+n <- 1000 #Size sample CFTP
+num_cores <- 4 #Number of cores used
+initial_seed <- 7117 #Seed for RNG
+increase_degree <- 78 #How much the degree is increased
+de_list <- vector("list", length = increase_degree+1) #Store all the de objects
+
+set.seed(initial_seed, "L'Ecuyer-CMRG") 
+#Construct the ladder
+cat("Constructing the dice enterprise \n")
+  de <- DiceEnterprise$new(G=list(
+    list(1,matrix(c(3*a,0,0),nrow=1,ncol=3)),
+    list(1,matrix(c(a,a,a),nrow=1,ncol=3)),
+    list(1,matrix(c(0,0,3*a),nrow=1,ncol=3)),
+    list(1,matrix(c(0,3*a,0),nrow=1,ncol=3))
+  ))
+  de_list[[1]] <- de
+  cat("Constructing the augmented dice enterprises \n")
+  for(i in 1:increase_degree) {
+    #Check if it already exists
+    if(file.exists(paste0("efficiency_multi_data/ladder_n_",n,"_a_",a,"_degree_",i,".rds"))) {
+      cat("Restoring previous work for degree +",i," \n")
+      prev_work <- readRDS(paste0("efficiency_multi_data/ladder_n_",n,"_a_",a,"_degree_",i,".rds"))
+      de_list[[i+1]]  <- prev_work$de_aug
+    } else {
+      cat("Constructing the augmented dice enterprises for +",i," \n")
+      if(i == 1) {
+        de_list[[i+1]] <- de$increase.degree(1)
+      } else {
+        de_list[[i+1]] <- de_list[[i-1]]$increase.degree(1)
+      }
+      #Save object
+      saveRDS(list(de_aug=de_list[[i+1]],i=i), file = paste0("efficiency_multi_data/ladder_n_",n,"_a_",a,"_degree_",i,".rds"))
+    }
+  }
+  
+
+#For each ladder get empirical number of tosses
+cat("Computing empirical number of tosses \n")
+emp_tosses <- matrix(NA, nrow = n, ncol = increase_degree+1)
+emp_res <- matrix(NA, nrow = n, ncol = increase_degree+1)
+colnames(emp_tosses) <- paste0("+",0:increase_degree)
+colnames(emp_res) <- paste0("+",0:increase_degree)
+for(i in 0:increase_degree) {
+  #Check if it already exists
+  if(file.exists(paste0("efficiency_multi_data/n_",n,"_a_",a,"_degree_",i,".rds"))) {
+    cat("Restoring previous work for degree +",i," \n")
+    prev_work <- readRDS(paste0("efficiency_multi_data/n_",n,"_a_",a,"_degree_",i,".rds"))
+    emp_tosses[,i+1] <- prev_work$emp_tosses
+    emp_res[,i+1] <- prev_work$emp_res
+  } else {
+    cat("Getting empirical tosses for +",i," \n")
+    aux <- de_list[[i+1]]$sample(n=n, true_p = true_p, num_cores = num_cores, verbose = TRUE)
+    emp_tosses[,i+1] <- aux[[2]]
+    emp_res[,i+1] <- aux[[1]]
+    #Save object
+    saveRDS(list(emp_tosses=aux[[2]],emp_res=aux[[1]]), file = paste0("efficiency_multi_data/n_",n,"_a_",a,"_degree_",i,".rds"))
+  }
+}
+
+apply(emp_tosses,2,mean)
 ```
 
+```{r high_power_multivariate_ladder_print}
+#Prepare output
+res_output <- matrix(NA, nrow = 1, ncol = increase_degree+1)
+colnames(res_output) <- paste0("+",0:increase_degree)
+res_output[1,] <- apply(emp_tosses,2,mean)
+print(res_output)
+```

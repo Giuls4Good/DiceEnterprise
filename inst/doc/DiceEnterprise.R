@@ -42,46 +42,24 @@ plot.confidence.interval(fp_tosses[[1]],print(bf$evaluate(3/4)))
 ## ----bf_error, error=TRUE------------------------------------------------
 bf_amp <- BernoulliFactory$new(f_1 = list(2,1), f_2 = list(c(1,-2),c(0,1)))
 
-## ----bf_logistic---------------------------------------------------------
-toss.coin.logistic <- function(n,p) {
-  sample(1:2, size = n, replace = TRUE, prob = c(p,1-p))
-}
-C <- 10
-p <- 0.01
-size_sample <- 10000
+## ----bf_threshold, error=TRUE--------------------------------------------
+bf_error <- BernoulliFactory$new(f_1 = list(c(-1,1,0.749),c(2,1,0)), 
+                                 f_2 = list(c(1,-1,0.251),c(2,1,0)))
+bf_no_error <- BernoulliFactory$new(f_1 = list(c(-1,1,0.749),c(2,1,0)), 
+                                 f_2 = list(c(1,-1,0.251),c(2,1,0)),
+                                 threshold = 500)
 
-bf_logistic <- BernoulliFactory$new(f_1 = list(C,1), f_2 = list(1,0))
-res <- bf_logistic$sample(n = size_sample, roll.fun = toss.coin.logistic, num_cores = 2, verbose = TRUE, p=p)
+## ----bf_AR---------------------------------------------------------------
+fp_tosses_AR <- bf$sample.AR(n = 1000, roll.fun = toss_coin)
+plot.confidence.interval(fp_tosses_AR,bf$evaluate(3/4))
 
-mean_Huber <- C/(1+C*p)
-print(mean_Huber) #Mean of Huber Algorithm
-print((1+C)/(1+C*p))  #Mean of Dice Enterprise
-print(mean(res[[2]]))
+## ----bf_AR_verbose1------------------------------------------------------
+fp_tosses_AR2 <- bf$sample.AR(n = 1000, roll.fun = toss_coin, verbose = TRUE)
+print(paste0("Empirical number of tosses required: ",mean(fp_tosses_AR2$empirical_tosses)))
 
-#CHECK IF IT IS CORRECT
-table(res[[1]])/size_sample
-print(c(C*p/(1+C*p), 1/(1+C*p)))
-
-
-
-## ----bf_Huber_A, echo=FALSE,eval=FALSE-----------------------------------
-#  #Algorithm A of Huber for function
-#  #f(p) = Cp(1-(Cp)^(m-1))/(1-(Cp)^m) where m=5
-#  m <- 5
-#  bf_A <- BernoulliFactory$new(f_1 = list(coeff = 10^seq(m,2), power = seq(m-1,1)),
-#                               f_2 = list(coeff = c(10), power = c(0)))
-#  
-#  size_sample <- 10000
-#  res_A <- bf_A$sample(n = size_sample, roll.fun = toss.coin.logistic, num_cores = 2, verbose = TRUE, p=p)
-#  
-#  mean_Huber_A <- C*(m-1)
-#  print(mean_Huber_A) #Mean of Huber Algorithm
-#  print(mean(res_A[[2]])) #Empirical mean of dice enterprise
-#  
-#  
-#  #Check correctness
-#  table(res_A[[1]])/size_sample
-#  print(bf_A$evaluate(p))
+## ----bf_AR_verbose2------------------------------------------------------
+fp_tosses_AR3 <- bf$sample.AR(n = 1000, true_p = c(3/4,1/4), verbose = TRUE)
+print(paste0("Theoretical number of tosses required: ",mean(fp_tosses_AR3$theor_tosses)))
 
 ## ----de_polynomials------------------------------------------------------
 f_dice <- list(
@@ -124,8 +102,10 @@ roll_die <- function(n) {
 } 
 #Get a sample of size 1000 from the multivariate ladder
 #and plot the estimates with confidence intervals
-sample_ex2 <- de_ex2$sample(n=1000, roll.fun = roll_die)
-plot.confidence.interval(sample_ex2,de_ex2$evaluate(true_prob_original_die))
+set.seed(17)
+sample_ex2 <- de_ex2$sample(n=1000, roll.fun = roll_die, verbose = TRUE)
+print(paste0("Average number of rolls required: ", mean(sample_ex2[[2]])))
+plot.confidence.interval(sample_ex2[[1]],de_ex2$evaluate(true_prob_original_die))
 
 
 ## ----ce_toss_all---------------------------------------------------------
@@ -234,4 +214,16 @@ plot.confidence.interval(result[[1]],indep_coins_probs/sum(indep_coins_probs))
 #  table(sample_coins_uniform[[1]])/size_sample
 #  mean(sample_coins_uniform[[2]])
 #  length(indep_coins_probs)/sum(indep_coins_probs)
+
+## ----bug_to_correct, error=TRUE, echo = FALSE----------------------------
+#(0.2501 - 1 x + 1 x^2)/((0.3 - 1 x + 1 x^2)+(0.2501 - 1 x + 1 x^2))
+# bf_bug <- BernoulliFactory$new(
+#   f_1 = list(c(0.2501,-1,1), c(0,1,2)),
+#   f_2 = list(c(0.3,-1,1), c(0,1,2)),
+# )
+#(2-5x+5x^2)/(10x+10)
+bf_bug <- DiceEnterprise$new(G = list(
+  list(c(2,-5,5),c("00","10","20")),
+  list(c(10,10),c("10","00"))
+))
 

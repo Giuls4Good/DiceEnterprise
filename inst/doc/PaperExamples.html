@@ -12,7 +12,7 @@
 
 <meta name="author" content="Giulio Morina" />
 
-<meta name="date" content="2018-04-11" />
+<meta name="date" content="2019-01-15" />
 
 <title>Reproducing Paper Examples</title>
 
@@ -70,29 +70,38 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 <h1 class="title toc-ignore">Reproducing Paper Examples</h1>
 <h4 class="author"><em>Giulio Morina</em></h4>
-<h4 class="date"><em>2018-04-11</em></h4>
+<h4 class="date"><em>2019-01-15</em></h4>
 
 
+<div id="TOC">
+<ul>
+<li><a href="#example-1---toy-bernoulli-factory">Example 1 - Toy Bernoulli Factory</a></li>
+<li><a href="#example-2---efficiency-of-monotonic-cftp">Example 2 - Efficiency of Monotonic CFTP</a></li>
+<li><a href="#example-3---dice-enterprise">Example 3 - Dice Enterprise</a></li>
+<li><a href="#example-4---augmenting-ladder-bernoulli-factory">Example 4 - Augmenting ladder (Bernoulli factory)</a></li>
+<li><a href="#example-5---augmenting-ladder-dice-enterprise">Example 5 - Augmenting ladder (Dice enterprise)</a></li>
+</ul>
+</div>
 
-<div id="example-1---bernoulli-factory" class="section level2">
-<h2>Example 1 - Bernoulli Factory</h2>
+<div id="example-1---toy-bernoulli-factory" class="section level2">
+<h2>Example 1 - Toy Bernoulli Factory</h2>
 <p><span class="math display">\[
 f(p) = \frac{\sqrt{2}p^3}{(\sqrt{2}-5)p^3+11p^2-9p+3}
 \]</span></p>
 <div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">sample_size &lt;-<span class="st"> </span><span class="dv">1000</span> <span class="co">#Number of tosses</span>
 probs_vec &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="fl">0.01</span>,<span class="fl">0.1</span>,<span class="fl">0.25</span>,<span class="fl">0.5</span>,<span class="fl">0.75</span>,<span class="fl">0.9</span>,<span class="fl">0.99</span>) <span class="co">#Vector of true probabilities of the p-coin</span>
-num_cores &lt;-<span class="st"> </span><span class="dv">4</span> <span class="co">#Number of cores used (parallel computing is not supported on Windows)</span>
+num_cores &lt;-<span class="st"> </span><span class="dv">2</span> <span class="co">#Number of cores used (parallel computing is not supported on Windows)</span>
 conf_level &lt;-<span class="st"> </span><span class="fl">0.95</span> <span class="co">#Confidence interval level</span></code></pre></div>
 <table>
 <colgroup>
-<col width="35%"></col>
-<col width="9%"></col>
-<col width="9%"></col>
-<col width="9%"></col>
+<col width="34%"></col>
+<col width="8%"></col>
+<col width="8%"></col>
+<col width="8%"></col>
 <col width="10%"></col>
-<col width="9%"></col>
-<col width="9%"></col>
-<col width="9%"></col>
+<col width="10%"></col>
+<col width="8%"></col>
+<col width="8%"></col>
 </colgroup>
 <thead>
 <tr class="header">
@@ -122,10 +131,10 @@ conf_level &lt;-<span class="st"> </span><span class="fl">0.95</span> <span clas
 <td align="center">0</td>
 <td align="center">0</td>
 <td align="center">0.01</td>
-<td align="center">0.19</td>
-<td align="center">0.65</td>
-<td align="center">0.84</td>
-<td align="center">0.99</td>
+<td align="center">0.18</td>
+<td align="center">0.63</td>
+<td align="center">0.86</td>
+<td align="center">0.98</td>
 </tr>
 <tr class="odd">
 <td align="center"><strong>Emp.f(p)</strong></td>
@@ -133,8 +142,8 @@ conf_level &lt;-<span class="st"> </span><span class="fl">0.95</span> <span clas
 <td align="center">0</td>
 <td align="center">0.01</td>
 <td align="center">0.21</td>
-<td align="center">0.68</td>
-<td align="center">0.86</td>
+<td align="center">0.66</td>
+<td align="center">0.88</td>
 <td align="center">0.99</td>
 </tr>
 <tr class="even">
@@ -142,478 +151,52 @@ conf_level &lt;-<span class="st"> </span><span class="fl">0.95</span> <span clas
 <td align="center">0</td>
 <td align="center">0</td>
 <td align="center">0.02</td>
-<td align="center">0.24</td>
-<td align="center">0.71</td>
-<td align="center">0.89</td>
-<td align="center">1</td>
+<td align="center">0.23</td>
+<td align="center">0.69</td>
+<td align="center">0.9</td>
+<td align="center">0.99</td>
 </tr>
 <tr class="odd">
 <td align="center"><strong>Exp.TossesNoDoubling</strong></td>
-<td align="center">4.79</td>
-<td align="center">5.54</td>
-<td align="center">7.5</td>
-<td align="center">10.55</td>
-<td align="center">8.13</td>
-<td align="center">6.61</td>
-<td align="center">5.92</td>
+<td align="center">4.8</td>
+<td align="center">5.61</td>
+<td align="center">7.45</td>
+<td align="center">10.61</td>
+<td align="center">8.05</td>
+<td align="center">6.51</td>
+<td align="center">5.94</td>
 </tr>
 <tr class="even">
 <td align="center"><strong>Exp.TossesDoubling</strong></td>
-<td align="center">5.88</td>
-<td align="center">7.16</td>
-<td align="center">9.74</td>
-<td align="center">14.34</td>
-<td align="center">10.9</td>
-<td align="center">8.75</td>
-<td align="center">7.94</td>
+<td align="center">5.98</td>
+<td align="center">7.12</td>
+<td align="center">9.58</td>
+<td align="center">13.78</td>
+<td align="center">10.74</td>
+<td align="center">8.65</td>
+<td align="center">7.74</td>
 </tr>
 </tbody>
 </table>
 </div>
-<div id="example-2---logistic-bernoulli-factory" class="section level2">
-<h2>Example 2 - Logistic Bernoulli Factory</h2>
-<p><span class="math display">\[
-f(p) = \frac{Cp}{1+Cp}
-\]</span></p>
-<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">constants &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="fl">0.1</span>,<span class="dv">1</span>,<span class="dv">10</span>,<span class="dv">100</span>)</code></pre></div>
-<table style="width:100%;">
-<caption>Table continues below</caption>
-<colgroup>
-<col width="35%"></col>
-<col width="11%"></col>
-<col width="13%"></col>
-<col width="13%"></col>
-<col width="13%"></col>
-<col width="13%"></col>
-</colgroup>
-<thead>
-<tr class="header">
-<th align="center"> </th>
-<th align="center">0.01</th>
-<th align="center">0.1</th>
-<th align="center">0.25</th>
-<th align="center">0.5</th>
-<th align="center">0.75</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="center"><strong>C</strong></td>
-<td align="center">0.1</td>
-<td align="center">0.1</td>
-<td align="center">0.1</td>
-<td align="center">0.1</td>
-<td align="center">0.1</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>f(p)</strong></td>
-<td align="center">0</td>
-<td align="center">0.01</td>
-<td align="center">0.02</td>
-<td align="center">0.05</td>
-<td align="center">0.07</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>LowerCI</strong></td>
-<td align="center">0</td>
-<td align="center">0.01</td>
-<td align="center">0.01</td>
-<td align="center">0.04</td>
-<td align="center">0.05</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Emp.f(p)</strong></td>
-<td align="center">0</td>
-<td align="center">0.01</td>
-<td align="center">0.02</td>
-<td align="center">0.06</td>
-<td align="center">0.07</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>UppCI</strong></td>
-<td align="center">0</td>
-<td align="center">0.02</td>
-<td align="center">0.03</td>
-<td align="center">0.07</td>
-<td align="center">0.08</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Exp.TossesNoDoubling</strong></td>
-<td align="center">1.11</td>
-<td align="center">1.1</td>
-<td align="center">1.07</td>
-<td align="center">1.05</td>
-<td align="center">1.02</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>Exp.TossesDoubling</strong></td>
-<td align="center">1.1</td>
-<td align="center">1.08</td>
-<td align="center">1.07</td>
-<td align="center">1.05</td>
-<td align="center">1.02</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Exp.TossesCFTP</strong></td>
-<td align="center">1.099</td>
-<td align="center">1.089</td>
-<td align="center">1.073</td>
-<td align="center">1.048</td>
-<td align="center">1.023</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>Exp.TossesHuber</strong></td>
-<td align="center">0.0999</td>
-<td align="center">0.09901</td>
-<td align="center">0.09756</td>
-<td align="center">0.09524</td>
-<td align="center">0.09302</td>
-</tr>
-</tbody>
-</table>
-<table style="width:65%;">
-<colgroup>
-<col width="37%"></col>
-<col width="13%"></col>
-<col width="13%"></col>
-</colgroup>
-<thead>
-<tr class="header">
-<th align="center"> </th>
-<th align="center">0.9</th>
-<th align="center">0.99</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="center"><strong>C</strong></td>
-<td align="center">0.1</td>
-<td align="center">0.1</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>f(p)</strong></td>
-<td align="center">0.08</td>
-<td align="center">0.09</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>LowerCI</strong></td>
-<td align="center">0.06</td>
-<td align="center">0.07</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Emp.f(p)</strong></td>
-<td align="center">0.08</td>
-<td align="center">0.09</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>UppCI</strong></td>
-<td align="center">0.1</td>
-<td align="center">0.1</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Exp.TossesNoDoubling</strong></td>
-<td align="center">1.01</td>
-<td align="center">1</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>Exp.TossesDoubling</strong></td>
-<td align="center">1.01</td>
-<td align="center">1</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Exp.TossesCFTP</strong></td>
-<td align="center">1.009</td>
-<td align="center">1.001</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>Exp.TossesHuber</strong></td>
-<td align="center">0.09174</td>
-<td align="center">0.09099</td>
-</tr>
-</tbody>
-</table>
-<table style="width:100%;">
-<caption>Table continues below</caption>
-<colgroup>
-<col width="34%"></col>
-<col width="11%"></col>
-<col width="11%"></col>
-<col width="8%"></col>
-<col width="11%"></col>
-<col width="11%"></col>
-<col width="11%"></col>
-</colgroup>
-<thead>
-<tr class="header">
-<th align="center"> </th>
-<th align="center">0.01</th>
-<th align="center">0.1</th>
-<th align="center">0.25</th>
-<th align="center">0.5</th>
-<th align="center">0.75</th>
-<th align="center">0.9</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="center"><strong>C</strong></td>
-<td align="center">1</td>
-<td align="center">1</td>
-<td align="center">1</td>
-<td align="center">1</td>
-<td align="center">1</td>
-<td align="center">1</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>f(p)</strong></td>
-<td align="center">0.01</td>
-<td align="center">0.09</td>
-<td align="center">0.2</td>
-<td align="center">0.33</td>
-<td align="center">0.43</td>
-<td align="center">0.47</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>LowerCI</strong></td>
-<td align="center">0</td>
-<td align="center">0.09</td>
-<td align="center">0.18</td>
-<td align="center">0.33</td>
-<td align="center">0.39</td>
-<td align="center">0.42</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Emp.f(p)</strong></td>
-<td align="center">0.01</td>
-<td align="center">0.11</td>
-<td align="center">0.2</td>
-<td align="center">0.36</td>
-<td align="center">0.42</td>
-<td align="center">0.45</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>UppCI</strong></td>
-<td align="center">0.01</td>
-<td align="center">0.13</td>
-<td align="center">0.23</td>
-<td align="center">0.4</td>
-<td align="center">0.46</td>
-<td align="center">0.48</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Exp.TossesNoDoubling</strong></td>
-<td align="center">2.02</td>
-<td align="center">1.83</td>
-<td align="center">1.64</td>
-<td align="center">1.31</td>
-<td align="center">1.14</td>
-<td align="center">1.05</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>Exp.TossesDoubling</strong></td>
-<td align="center">2.23</td>
-<td align="center">2.11</td>
-<td align="center">1.77</td>
-<td align="center">1.38</td>
-<td align="center">1.15</td>
-<td align="center">1.06</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Exp.TossesCFTP</strong></td>
-<td align="center">1.98</td>
-<td align="center">1.818</td>
-<td align="center">1.6</td>
-<td align="center">1.333</td>
-<td align="center">1.143</td>
-<td align="center">1.053</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>Exp.TossesHuber</strong></td>
-<td align="center">0.9901</td>
-<td align="center">0.9091</td>
-<td align="center">0.8</td>
-<td align="center">0.6667</td>
-<td align="center">0.5714</td>
-<td align="center">0.5263</td>
-</tr>
-</tbody>
-</table>
-<table style="width:49%;">
-<colgroup>
-<col width="37%"></col>
-<col width="11%"></col>
-</colgroup>
-<thead>
-<tr class="header">
-<th align="center"> </th>
-<th align="center">0.99</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="center"><strong>C</strong></td>
-<td align="center">1</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>f(p)</strong></td>
-<td align="center">0.5</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>LowerCI</strong></td>
-<td align="center">0.45</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Emp.f(p)</strong></td>
-<td align="center">0.48</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>UppCI</strong></td>
-<td align="center">0.51</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Exp.TossesNoDoubling</strong></td>
-<td align="center">1</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>Exp.TossesDoubling</strong></td>
-<td align="center">1</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Exp.TossesCFTP</strong></td>
-<td align="center">1.005</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>Exp.TossesHuber</strong></td>
-<td align="center">0.5025</td>
-</tr>
-</tbody>
-</table>
-<table>
-<colgroup>
-<col width="33%"></col>
-<col width="9%"></col>
-<col width="8%"></col>
-<col width="9%"></col>
-<col width="9%"></col>
-<col width="9%"></col>
-<col width="8%"></col>
-<col width="9%"></col>
-</colgroup>
-<thead>
-<tr class="header">
-<th align="center"> </th>
-<th align="center">0.01</th>
-<th align="center">0.1</th>
-<th align="center">0.25</th>
-<th align="center">0.5</th>
-<th align="center">0.75</th>
-<th align="center">0.9</th>
-<th align="center">0.99</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td align="center"><strong>C</strong></td>
-<td align="center">10</td>
-<td align="center">10</td>
-<td align="center">10</td>
-<td align="center">10</td>
-<td align="center">10</td>
-<td align="center">10</td>
-<td align="center">10</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>f(p)</strong></td>
-<td align="center">0.09</td>
-<td align="center">0.5</td>
-<td align="center">0.71</td>
-<td align="center">0.83</td>
-<td align="center">0.88</td>
-<td align="center">0.9</td>
-<td align="center">0.91</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>LowerCI</strong></td>
-<td align="center">0.08</td>
-<td align="center">0.49</td>
-<td align="center">0.68</td>
-<td align="center">0.81</td>
-<td align="center">0.86</td>
-<td align="center">0.89</td>
-<td align="center">0.89</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Emp.f(p)</strong></td>
-<td align="center">0.1</td>
-<td align="center">0.52</td>
-<td align="center">0.71</td>
-<td align="center">0.83</td>
-<td align="center">0.88</td>
-<td align="center">0.9</td>
-<td align="center">0.91</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>UppCI</strong></td>
-<td align="center">0.12</td>
-<td align="center">0.55</td>
-<td align="center">0.74</td>
-<td align="center">0.86</td>
-<td align="center">0.9</td>
-<td align="center">0.92</td>
-<td align="center">0.92</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Exp.TossesNoDoubling</strong></td>
-<td align="center">10.48</td>
-<td align="center">5.67</td>
-<td align="center">3.28</td>
-<td align="center">1.89</td>
-<td align="center">1.32</td>
-<td align="center">1.09</td>
-<td align="center">1.01</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>Exp.TossesDoubling</strong></td>
-<td align="center">14.53</td>
-<td align="center">7.7</td>
-<td align="center">4.06</td>
-<td align="center">2.07</td>
-<td align="center">1.36</td>
-<td align="center">1.09</td>
-<td align="center">1.01</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Exp.TossesCFTP</strong></td>
-<td align="center">10</td>
-<td align="center">5.5</td>
-<td align="center">3.143</td>
-<td align="center">1.833</td>
-<td align="center">1.294</td>
-<td align="center">1.1</td>
-<td align="center">1.009</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>Exp.TossesHuber</strong></td>
-<td align="center">9.091</td>
-<td align="center">5</td>
-<td align="center">2.857</td>
-<td align="center">1.667</td>
-<td align="center">1.176</td>
-<td align="center">1</td>
-<td align="center">0.9174</td>
-</tr>
-</tbody>
-</table>
+<div id="example-2---efficiency-of-monotonic-cftp" class="section level2">
+<h2>Example 2 - Efficiency of Monotonic CFTP</h2>
+<p>We consider the ladder <span class="math display">\[
+\pi(p) \propto ((1-p)^4,1000p(1-p)^3,p^2(1-p)^2,500p^3(1-p),p^4)
+\]</span> and show that increasing the degree of the ladder leads to better performance in terms of the expected number of tosses of the <span class="math inline">\(p\)</span>-coin.</p>
+<pre><code>  0.01     0.1    0.25      0.5     0.75      0.9     0.99</code></pre>
+<p>+0 561.309 621.732 827.855 1332.628 1433.588 1209.278 1090.539 +1 92.351 12.206 7.721 8.649 9.476 12.589 87.051 +2 93.165 13.329 9.425 11.294 11.665 14.469 89.564 Eff.Condition +0 0 +1 0 +2 1</p>
 <table style="width:100%;">
 <colgroup>
-<col width="32%"></col>
-<col width="9%"></col>
-<col width="9%"></col>
-<col width="9%"></col>
-<col width="9%"></col>
-<col width="9%"></col>
-<col width="9%"></col>
-<col width="9%"></col>
+<col width="11%"></col>
+<col width="10%"></col>
+<col width="10%"></col>
+<col width="10%"></col>
+<col width="10%"></col>
+<col width="10%"></col>
+<col width="10%"></col>
+<col width="10%"></col>
+<col width="18%"></col>
 </colgroup>
 <thead>
 <tr class="header">
@@ -625,97 +208,41 @@ f(p) = \frac{Cp}{1+Cp}
 <th align="center">0.75</th>
 <th align="center">0.9</th>
 <th align="center">0.99</th>
+<th align="center">Eff.Condition</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="center"><strong>C</strong></td>
-<td align="center">100</td>
-<td align="center">100</td>
-<td align="center">100</td>
-<td align="center">100</td>
-<td align="center">100</td>
-<td align="center">100</td>
-<td align="center">100</td>
+<td align="center"><strong>+0</strong></td>
+<td align="center">561.3</td>
+<td align="center">621.7</td>
+<td align="center">827.9</td>
+<td align="center">1333</td>
+<td align="center">1434</td>
+<td align="center">1209</td>
+<td align="center">1091</td>
+<td align="center">0</td>
 </tr>
 <tr class="even">
-<td align="center"><strong>f(p)</strong></td>
-<td align="center">0.5</td>
-<td align="center">0.91</td>
-<td align="center">0.96</td>
-<td align="center">0.98</td>
-<td align="center">0.99</td>
-<td align="center">0.99</td>
-<td align="center">0.99</td>
+<td align="center"><strong>+1</strong></td>
+<td align="center">92.35</td>
+<td align="center">12.21</td>
+<td align="center">7.721</td>
+<td align="center">8.649</td>
+<td align="center">9.476</td>
+<td align="center">12.59</td>
+<td align="center">87.05</td>
+<td align="center">0</td>
 </tr>
 <tr class="odd">
-<td align="center"><strong>LowerCI</strong></td>
-<td align="center">0.48</td>
-<td align="center">0.88</td>
-<td align="center">0.94</td>
-<td align="center">0.98</td>
-<td align="center">0.98</td>
-<td align="center">0.99</td>
-<td align="center">0.99</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Emp.f(p)</strong></td>
-<td align="center">0.51</td>
-<td align="center">0.89</td>
-<td align="center">0.95</td>
-<td align="center">0.98</td>
-<td align="center">0.99</td>
-<td align="center">0.99</td>
-<td align="center">0.99</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>UppCI</strong></td>
-<td align="center">0.54</td>
-<td align="center">0.91</td>
-<td align="center">0.96</td>
-<td align="center">0.99</td>
-<td align="center">0.99</td>
-<td align="center">1</td>
-<td align="center">1</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Exp.TossesNoDoubling</strong></td>
-<td align="center">47.68</td>
-<td align="center">8.99</td>
-<td align="center">3.88</td>
-<td align="center">1.95</td>
-<td align="center">1.29</td>
-<td align="center">1.1</td>
-<td align="center">1.01</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>Exp.TossesDoubling</strong></td>
-<td align="center">68.72</td>
-<td align="center">12.69</td>
-<td align="center">4.93</td>
-<td align="center">2.23</td>
-<td align="center">1.33</td>
-<td align="center">1.09</td>
-<td align="center">1.01</td>
-</tr>
-<tr class="even">
-<td align="center"><strong>Exp.TossesCFTP</strong></td>
-<td align="center">50.5</td>
-<td align="center">9.182</td>
-<td align="center">3.885</td>
-<td align="center">1.98</td>
-<td align="center">1.329</td>
-<td align="center">1.11</td>
-<td align="center">1.01</td>
-</tr>
-<tr class="odd">
-<td align="center"><strong>Exp.TossesHuber</strong></td>
-<td align="center">50</td>
-<td align="center">9.091</td>
-<td align="center">3.846</td>
-<td align="center">1.961</td>
-<td align="center">1.316</td>
-<td align="center">1.099</td>
+<td align="center"><strong>+2</strong></td>
+<td align="center">93.17</td>
+<td align="center">13.33</td>
+<td align="center">9.425</td>
+<td align="center">11.29</td>
+<td align="center">11.66</td>
+<td align="center">14.47</td>
+<td align="center">89.56</td>
 <td align="center">1</td>
 </tr>
 </tbody>
@@ -738,33 +265,321 @@ conf_level &lt;-<span class="st"> </span><span class="fl">0.95</span> <span clas
 #&gt;         **f(p)**           (0.08, 0.15, 0.02, 0.37, 0.21,   (0.01, 0.04, 0.03, 0.33, 0.1,  
 #&gt;                                        0.17)                            0.49)              
 #&gt; 
-#&gt;        **LowerCI**          (0.04, 0.12, 0, 0.34, 0.18,       (0, 0, 0, 0.3, 0.08, 0.45)   
-#&gt;                                        0.13)                                               
+#&gt;        **LowerCI**          (0.04, 0.13, 0, 0.32, 0.18,     (0, 0.01, 0, 0.29, 0.06, 0.47) 
+#&gt;                                        0.15)                                               
 #&gt; 
-#&gt;       **Emp.f(p)**         (0.08, 0.16, 0.02, 0.37, 0.22,   (0.01, 0.04, 0.04, 0.33, 0.11, 
-#&gt;                                        0.16)                            0.48)              
+#&gt;       **Emp.f(p)**         (0.07, 0.16, 0.02, 0.36, 0.22,   (0.01, 0.04, 0.04, 0.32, 0.09, 
+#&gt;                                        0.18)                             0.5)              
 #&gt; 
-#&gt;         **UppCI**          (0.11, 0.19, 0.05, 0.4, 0.25,    (0.04, 0.07, 0.07, 0.36, 0.14, 
-#&gt;                                         0.2)                            0.52)              
+#&gt;         **UppCI**           (0.1, 0.2, 0.05, 0.39, 0.25,    (0.04, 0.07, 0.07, 0.36, 0.12, 
+#&gt;                                        0.21)                            0.54)              
 #&gt; 
-#&gt;  **Exp.RollsNoDoubling**                9.36                            10.12              
+#&gt;  **Exp.RollsNoDoubling**                9.6                             10.42              
 #&gt; 
-#&gt;   **Exp.RollsDoubling**                13.49                            14.77              
+#&gt;   **Exp.RollsDoubling**                12.84                            14.03              
 #&gt; -------------------------------------------------------------------------------------------</code></pre>
 </div>
-<div id="example-4---bernoulli-race-independent-coins" class="section level2">
-<h2>Example 4 - Bernoulli race (independent coins)</h2>
-<p>See main vignette.</p>
+<div id="example-4---augmenting-ladder-bernoulli-factory" class="section level2">
+<h2>Example 4 - Augmenting ladder (Bernoulli factory)</h2>
+<p>We consider a ladder of the following form, where the true (unknown) <span class="math inline">\(p\)</span> is <span class="math inline">\(1/2\)</span>: <span class="math display">\[
+\pi(p) \propto \{p^{2a},p^a(1-p)^a,(1-p)^{2a}\}
+\]</span> A naive approach similar to the 2-coin algorithm would be with probability <span class="math inline">\(1/3\)</span>, toss a <span class="math inline">\(p\)</span>-coin <span class="math inline">\(2a\)</span> times and output <span class="math inline">\(1\)</span> if all heads; with prob. <span class="math inline">\(1/3\)</span> toss a <span class="math inline">\(p\)</span>-coin <span class="math inline">\(2a\)</span> times and output <span class="math inline">\(1\)</span> if the first <span class="math inline">\(a\)</span> are heads and the last <span class="math inline">\(a\)</span> tosses are tails; with prob. <span class="math inline">\(1/3\)</span> toss a <span class="math inline">\(p\)</span>-coin <span class="math inline">\(2a\)</span> times and output <span class="math inline">\(1\)</span> if all tails. This would require on average <span class="math inline">\(\mathbb{E}_{p=1/2}[N] = 2^{2a}\)</span>.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">rm</span>(<span class="dt">list=</span><span class="kw">ls</span>())
+<span class="kw">require</span>(<span class="st">&quot;DiceEnterprise&quot;</span>)
+
+p &lt;-<span class="st"> </span><span class="dv">1</span><span class="op">/</span><span class="dv">2</span> <span class="co">#True value of p</span>
+a &lt;-<span class="st"> </span><span class="dv">10</span> <span class="co">#Exponent</span>
+n &lt;-<span class="st"> </span><span class="dv">1000</span> <span class="co">#Size sample CFTP</span>
+num_cores &lt;-<span class="st"> </span><span class="dv">4</span> <span class="co">#Number of cores used</span>
+initial_seed &lt;-<span class="st"> </span><span class="dv">17</span> <span class="co">#Seed for RNG</span>
+increase_degree &lt;-<span class="st"> </span><span class="dv">260</span> <span class="co">#How much the degree is increased</span>
+de_list &lt;-<span class="st"> </span><span class="kw">vector</span>(<span class="st">&quot;list&quot;</span>, <span class="dt">length =</span> increase_degree<span class="op">+</span><span class="dv">1</span>) <span class="co">#Store all the de objects</span>
+
+<span class="kw">set.seed</span>(initial_seed, <span class="st">&quot;L'Ecuyer-CMRG&quot;</span>) 
+<span class="co">#Construct the ladder</span>
+<span class="kw">cat</span>(<span class="st">&quot;Constructing the dice enterprise </span><span class="ch">\n</span><span class="st">&quot;</span>)
+  de &lt;-<span class="st"> </span>DiceEnterprise<span class="op">$</span><span class="kw">new</span>(<span class="dt">G=</span><span class="kw">list</span>(
+    <span class="kw">list</span>(<span class="dv">1</span>,<span class="kw">matrix</span>(<span class="kw">c</span>(<span class="dv">2</span><span class="op">*</span>a,<span class="dv">0</span>),<span class="dt">nrow=</span><span class="dv">1</span>,<span class="dt">ncol=</span><span class="dv">2</span>)),
+    <span class="kw">list</span>(<span class="dv">1</span>,<span class="kw">matrix</span>(<span class="kw">c</span>(a,a),<span class="dt">nrow=</span><span class="dv">1</span>,<span class="dt">ncol=</span><span class="dv">2</span>)),
+    <span class="kw">list</span>(<span class="dv">1</span>,<span class="kw">matrix</span>(<span class="kw">c</span>(<span class="dv">0</span>,<span class="dv">2</span><span class="op">*</span>a),<span class="dt">nrow=</span><span class="dv">1</span>,<span class="dt">ncol=</span><span class="dv">2</span>))
+  ))
+  de_list[[<span class="dv">1</span>]] &lt;-<span class="st"> </span>de
+  <span class="kw">cat</span>(<span class="st">&quot;Constructing the augmented dice enterprises </span><span class="ch">\n</span><span class="st">&quot;</span>)
+  <span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="op">:</span>increase_degree) {
+    <span class="co">#Check if it already exists</span>
+    <span class="cf">if</span>(<span class="kw">file.exists</span>(<span class="kw">paste0</span>(<span class="st">&quot;efficiency_uni_data/ladder_a_&quot;</span>,a,<span class="st">&quot;_degree_&quot;</span>,i,<span class="st">&quot;.rds&quot;</span>))) {
+      <span class="kw">cat</span>(<span class="st">&quot;Restoring previous work for degree +&quot;</span>,i,<span class="st">&quot; </span><span class="ch">\n</span><span class="st">&quot;</span>)
+      prev_work &lt;-<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">paste0</span>(<span class="st">&quot;efficiency_uni_data/ladder_a_&quot;</span>,a,<span class="st">&quot;_degree_&quot;</span>,i,<span class="st">&quot;.rds&quot;</span>))
+      de_list[[i<span class="op">+</span><span class="dv">1</span>]]  &lt;-<span class="st"> </span>prev_work<span class="op">$</span>de_aug
+    } <span class="cf">else</span> {
+      <span class="kw">stop</span>(<span class="st">&quot;WHAT?!&quot;</span>)
+      <span class="kw">cat</span>(<span class="st">&quot;Constructing the augmented dice enterprises for +&quot;</span>,i,<span class="st">&quot; </span><span class="ch">\n</span><span class="st">&quot;</span>)
+      <span class="cf">if</span>(i <span class="op">==</span><span class="st"> </span><span class="dv">1</span>) {
+        de_list[[i<span class="op">+</span><span class="dv">1</span>]] &lt;-<span class="st"> </span>de<span class="op">$</span><span class="kw">increase.degree</span>(<span class="dv">1</span>)
+      } <span class="cf">else</span> {
+        de_list[[i<span class="op">+</span><span class="dv">1</span>]] &lt;-<span class="st"> </span>de_list[[i<span class="op">-</span><span class="dv">1</span>]]<span class="op">$</span><span class="kw">increase.degree</span>(<span class="dv">1</span>)
+      }
+      <span class="co">#Save object</span>
+      <span class="kw">saveRDS</span>(<span class="kw">list</span>(<span class="dt">de_aug=</span>de_list[[i<span class="op">+</span><span class="dv">1</span>]],<span class="dt">i=</span>i), <span class="dt">file =</span> <span class="kw">paste0</span>(<span class="st">&quot;efficiency_uni_data/ladder_a_&quot;</span>,a,<span class="st">&quot;_degree_&quot;</span>,i,<span class="st">&quot;.rds&quot;</span>))
+    }
+  
+}
+
+<span class="co">#For each ladder get empirical number of tosses and bound</span>
+<span class="kw">cat</span>(<span class="st">&quot;Computing empirical number of tosses and bound </span><span class="ch">\n</span><span class="st">&quot;</span>)
+emp_tosses &lt;-<span class="st"> </span><span class="kw">matrix</span>(<span class="ot">NA</span>, <span class="dt">nrow =</span> n, <span class="dt">ncol =</span> increase_degree<span class="op">+</span><span class="dv">1</span>)
+emp_res &lt;-<span class="st"> </span><span class="kw">matrix</span>(<span class="ot">NA</span>, <span class="dt">nrow =</span> n, <span class="dt">ncol =</span> increase_degree<span class="op">+</span><span class="dv">1</span>)
+<span class="kw">colnames</span>(emp_tosses) &lt;-<span class="st"> </span><span class="kw">paste0</span>(<span class="st">&quot;+&quot;</span>,<span class="dv">0</span><span class="op">:</span>increase_degree)
+<span class="kw">colnames</span>(emp_res) &lt;-<span class="st"> </span><span class="kw">paste0</span>(<span class="st">&quot;+&quot;</span>,<span class="dv">0</span><span class="op">:</span>increase_degree)
+<span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">0</span><span class="op">:</span>increase_degree) {
+  <span class="co">#Check if it already exists</span>
+  <span class="cf">if</span>(<span class="kw">file.exists</span>(<span class="kw">paste0</span>(<span class="st">&quot;efficiency_uni_data/n_&quot;</span>,n,<span class="st">&quot;_a_&quot;</span>,a,<span class="st">&quot;_degree_&quot;</span>,i,<span class="st">&quot;.rds&quot;</span>))) {
+    <span class="kw">cat</span>(<span class="st">&quot;Restoring previous work for degree +&quot;</span>,i,<span class="st">&quot; </span><span class="ch">\n</span><span class="st">&quot;</span>)
+    prev_work &lt;-<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">paste0</span>(<span class="st">&quot;efficiency_uni_data/n_&quot;</span>,n,<span class="st">&quot;_a_&quot;</span>,a,<span class="st">&quot;_degree_&quot;</span>,i,<span class="st">&quot;.rds&quot;</span>))
+    emp_tosses[,i<span class="op">+</span><span class="dv">1</span>] &lt;-<span class="st"> </span>prev_work<span class="op">$</span>emp_tosses
+    emp_res[,i<span class="op">+</span><span class="dv">1</span>] &lt;-<span class="st"> </span>prev_work<span class="op">$</span>emp_res
+  } <span class="cf">else</span> {
+    <span class="kw">cat</span>(<span class="st">&quot;Getting empirical tosses for +&quot;</span>,i,<span class="st">&quot; </span><span class="ch">\n</span><span class="st">&quot;</span>)
+    aux &lt;-<span class="st"> </span>de_list[[i<span class="op">+</span><span class="dv">1</span>]]<span class="op">$</span><span class="kw">sample</span>(<span class="dt">n=</span>n, <span class="dt">true_p =</span> <span class="kw">c</span>(p,<span class="dv">1</span><span class="op">-</span>p), <span class="dt">num_cores =</span> num_cores, <span class="dt">verbose =</span> <span class="ot">TRUE</span>)
+    emp_tosses[,i<span class="op">+</span><span class="dv">1</span>] &lt;-<span class="st"> </span>aux[[<span class="dv">2</span>]]
+    emp_res[,i<span class="op">+</span><span class="dv">1</span>] &lt;-<span class="st"> </span>aux[[<span class="dv">1</span>]]
+    <span class="co">#Save object</span>
+    <span class="kw">saveRDS</span>(<span class="kw">list</span>(<span class="dt">emp_tosses=</span>aux[[<span class="dv">2</span>]],<span class="dt">emp_res=</span>aux[[<span class="dv">1</span>]]), <span class="dt">file =</span> <span class="kw">paste0</span>(<span class="st">&quot;efficiency_uni_data/n_&quot;</span>,n,<span class="st">&quot;_a_&quot;</span>,a,<span class="st">&quot;_degree_&quot;</span>,i,<span class="st">&quot;.rds&quot;</span>))
+  }
+}</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co">#Prepare output</span>
+res_output &lt;-<span class="st"> </span><span class="kw">matrix</span>(<span class="ot">NA</span>, <span class="dt">nrow =</span> <span class="dv">2</span>, <span class="dt">ncol =</span> increase_degree<span class="op">+</span><span class="dv">1</span>)
+<span class="kw">colnames</span>(res_output) &lt;-<span class="st"> </span><span class="kw">paste0</span>(<span class="st">&quot;+&quot;</span>,<span class="dv">0</span><span class="op">:</span>increase_degree)
+<span class="kw">rownames</span>(res_output) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;Exp.Tosses&quot;</span>,<span class="st">&quot;Efficiency.Condition&quot;</span>)
+res_output[<span class="dv">1</span>,] &lt;-<span class="st"> </span><span class="kw">apply</span>(emp_tosses,<span class="dv">2</span>,mean)
+res_output[<span class="dv">2</span>,] &lt;-<span class="st"> </span><span class="kw">sapply</span>(de_list, <span class="cf">function</span>(x) {x<span class="op">$</span><span class="kw">get.efficiency.condition</span>()})
+<span class="kw">print</span>(res_output)
+<span class="co">#&gt;                            +0       +1       +2       +3       +4       +5</span>
+<span class="co">#&gt; Exp.Tosses           5337.692 4148.423 4147.423 2007.262 2006.262 1640.265</span>
+<span class="co">#&gt; Efficiency.Condition    0.000    0.000    0.000    0.000    0.000    0.000</span>
+<span class="co">#&gt;                            +6       +7       +8       +9      +10     +11</span>
+<span class="co">#&gt; Exp.Tosses           1639.265 1148.496 1147.496 1012.188 1011.801 824.197</span>
+<span class="co">#&gt; Efficiency.Condition    0.000    0.000    0.000    0.000    0.000   0.000</span>
+<span class="co">#&gt;                          +12     +13     +14     +15     +16     +17</span>
+<span class="co">#&gt; Exp.Tosses           824.299 754.608 755.346 685.968 686.124 625.245</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                          +18    +19     +20    +21     +22     +23     +24</span>
+<span class="co">#&gt; Exp.Tosses           625.238 586.26 585.727 568.36 567.813 533.453 534.064</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.00   0.000   0.00   0.000   0.000   0.000</span>
+<span class="co">#&gt;                          +25     +26     +27    +28     +29     +30</span>
+<span class="co">#&gt; Exp.Tosses           534.191 534.666 507.033 507.17 495.296 496.038</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.00   0.000   0.000</span>
+<span class="co">#&gt;                          +31     +32     +33     +34     +35    +36</span>
+<span class="co">#&gt; Exp.Tosses           494.522 493.639 483.351 482.952 474.646 475.17</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.00</span>
+<span class="co">#&gt;                          +37    +38     +39     +40     +41     +42</span>
+<span class="co">#&gt; Exp.Tosses           463.621 463.26 471.249 471.443 468.031 467.855</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.00   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                          +43     +44     +45     +46     +47     +48</span>
+<span class="co">#&gt; Exp.Tosses           465.589 465.884 468.637 468.286 461.053 460.549</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                          +49     +50     +51     +52     +53     +54</span>
+<span class="co">#&gt; Exp.Tosses           470.946 470.369 471.037 470.843 476.023 475.637</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                         +55     +56    +57     +58     +59     +60     +61</span>
+<span class="co">#&gt; Exp.Tosses           470.89 470.857 481.66 481.312 481.062 481.675 486.467</span>
+<span class="co">#&gt; Efficiency.Condition   0.00   0.000   0.00   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                          +62     +63     +64     +65     +66     +67</span>
+<span class="co">#&gt; Exp.Tosses           487.133 494.313 493.956 494.726 495.153 497.648</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                          +68     +69     +70     +71     +72     +73   +74</span>
+<span class="co">#&gt; Exp.Tosses           497.783 503.526 503.711 509.307 511.513 515.735 515.7</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.000   0.0</span>
+<span class="co">#&gt;                          +75    +76     +77     +78     +79     +80</span>
+<span class="co">#&gt; Exp.Tosses           515.418 515.89 521.839 521.839 530.252 529.292</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.00   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                          +81     +82     +83    +84     +85     +86</span>
+<span class="co">#&gt; Exp.Tosses           533.288 533.137 543.345 543.07 545.755 545.608</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.00   0.000   0.000</span>
+<span class="co">#&gt;                          +87     +88     +89     +90     +91     +92</span>
+<span class="co">#&gt; Exp.Tosses           554.955 553.925 554.869 555.973 558.457 558.469</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                          +93     +94     +95     +96     +97     +98</span>
+<span class="co">#&gt; Exp.Tosses           561.129 561.008 577.132 578.123 580.142 580.431</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                          +99    +100    +101    +102    +103   +104</span>
+<span class="co">#&gt; Exp.Tosses           590.589 590.416 596.387 595.716 598.635 599.22</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.00</span>
+<span class="co">#&gt;                         +105    +106    +107    +108    +109    +110</span>
+<span class="co">#&gt; Exp.Tosses           609.082 608.773 613.324 614.164 625.386 625.901</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                         +111    +112    +113    +114    +115    +116</span>
+<span class="co">#&gt; Exp.Tosses           630.439 629.712 632.519 631.527 643.567 644.395</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                         +117    +118    +119  +120    +121    +122    +123</span>
+<span class="co">#&gt; Exp.Tosses           652.006 653.539 646.184 647.9 656.435 656.937 651.741</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.0   0.000   0.000   0.000</span>
+<span class="co">#&gt;                         +124    +125    +126    +127    +128    +129</span>
+<span class="co">#&gt; Exp.Tosses           651.725 663.815 664.065 675.053 673.954 677.708</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                         +130    +131    +132    +133    +134    +135</span>
+<span class="co">#&gt; Exp.Tosses           678.863 690.864 690.067 682.569 682.911 704.993</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                         +136    +137    +138    +139    +140    +141  +142</span>
+<span class="co">#&gt; Exp.Tosses           705.476 696.688 697.076 716.952 717.219 703.406 703.9</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.000   0.0</span>
+<span class="co">#&gt;                         +143    +144    +145    +146    +147   +148</span>
+<span class="co">#&gt; Exp.Tosses           716.429 716.088 719.611 718.557 724.665 724.92</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.00</span>
+<span class="co">#&gt;                         +149    +150   +151    +152  +153    +154    +155</span>
+<span class="co">#&gt; Exp.Tosses           728.091 729.116 742.35 741.049 741.3 741.406 752.438</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.00   0.000   0.0   0.000   0.000</span>
+<span class="co">#&gt;                         +156    +157    +158    +159    +160    +161</span>
+<span class="co">#&gt; Exp.Tosses           753.202 759.021 758.402 772.235 774.168 768.989</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                         +162    +163    +164    +165   +166    +167</span>
+<span class="co">#&gt; Exp.Tosses           768.735 781.919 780.888 792.539 791.77 787.472</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.00   0.000</span>
+<span class="co">#&gt;                         +168    +169    +170    +171    +172    +173</span>
+<span class="co">#&gt; Exp.Tosses           788.205 806.298 806.708 802.954 803.455 809.178</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                         +174    +175    +176    +177    +178    +179</span>
+<span class="co">#&gt; Exp.Tosses           807.775 822.018 822.547 823.061 823.107 839.486</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                         +180  +181    +182    +183    +184    +185    +186</span>
+<span class="co">#&gt; Exp.Tosses           840.171 837.7 837.989 852.061 851.606 849.281 848.954</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.0   0.000   0.000   0.000   0.000   0.000</span>
+<span class="co">#&gt;                         +187    +188    +189    +190   +191    +192</span>
+<span class="co">#&gt; Exp.Tosses           860.454 858.454 855.702 857.129 866.12 865.308</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.00   0.000</span>
+<span class="co">#&gt;                         +193    +194    +195    +196   +197    +198</span>
+<span class="co">#&gt; Exp.Tosses           872.395 871.965 880.432 880.683 878.97 878.818</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.000   0.00   0.000</span>
+<span class="co">#&gt;                         +199    +200    +201   +202    +203    +204</span>
+<span class="co">#&gt; Exp.Tosses           892.075 892.301 890.961 891.38 903.282 902.458</span>
+<span class="co">#&gt; Efficiency.Condition   0.000   0.000   0.000   0.00   1.000   1.000</span>
+<span class="co">#&gt;                         +205    +206    +207    +208    +209   +210</span>
+<span class="co">#&gt; Exp.Tosses           901.405 902.018 910.531 910.157 908.184 907.85</span>
+<span class="co">#&gt; Efficiency.Condition   1.000   1.000   1.000   1.000   1.000   1.00</span>
+<span class="co">#&gt;                         +211    +212    +213    +214    +215    +216</span>
+<span class="co">#&gt; Exp.Tosses           914.236 914.979 918.511 919.025 922.237 922.701</span>
+<span class="co">#&gt; Efficiency.Condition   1.000   1.000   1.000   1.000   1.000   1.000</span>
+<span class="co">#&gt;                         +217    +218   +219    +220    +221    +222</span>
+<span class="co">#&gt; Exp.Tosses           920.593 921.041 926.51 927.324 939.123 939.134</span>
+<span class="co">#&gt; Efficiency.Condition   1.000   1.000   1.00   1.000   1.000   1.000</span>
+<span class="co">#&gt;                         +223    +224    +225    +226    +227    +228</span>
+<span class="co">#&gt; Exp.Tosses           940.786 940.837 958.618 958.501 958.047 959.218</span>
+<span class="co">#&gt; Efficiency.Condition   1.000   1.000   1.000   1.000   1.000   1.000</span>
+<span class="co">#&gt;                         +229    +230    +231    +232    +233    +234</span>
+<span class="co">#&gt; Exp.Tosses           960.134 960.613 965.278 967.115 970.545 969.325</span>
+<span class="co">#&gt; Efficiency.Condition   1.000   1.000   1.000   1.000   1.000   1.000</span>
+<span class="co">#&gt;                         +235   +236    +237    +238    +239    +240   +241</span>
+<span class="co">#&gt; Exp.Tosses           971.794 971.34 976.338 974.908 995.998 996.387 996.05</span>
+<span class="co">#&gt; Efficiency.Condition   1.000   1.00   1.000   1.000   1.000   1.000   1.00</span>
+<span class="co">#&gt;                         +242    +243    +244     +245     +246     +247</span>
+<span class="co">#&gt; Exp.Tosses           995.779 1005.05 1003.87 1002.813 1003.533 1014.566</span>
+<span class="co">#&gt; Efficiency.Condition   1.000    1.00    1.00    1.000    1.000    1.000</span>
+<span class="co">#&gt;                          +248     +249     +250     +251     +252     +253</span>
+<span class="co">#&gt; Exp.Tosses           1015.261 1017.109 1017.294 1021.604 1021.668 1022.365</span>
+<span class="co">#&gt; Efficiency.Condition    1.000    1.000    1.000    1.000    1.000    1.000</span>
+<span class="co">#&gt;                          +254     +255     +256     +257     +258     +259</span>
+<span class="co">#&gt; Exp.Tosses           1022.255 1028.505 1027.751 1029.737 1029.341 1039.391</span>
+<span class="co">#&gt; Efficiency.Condition    1.000    1.000    1.000    1.000    1.000    1.000</span>
+<span class="co">#&gt;                          +260</span>
+<span class="co">#&gt; Exp.Tosses           1038.861</span>
+<span class="co">#&gt; Efficiency.Condition    1.000</span></code></pre></div>
 </div>
-<div id="example-5---2-coin-algorithm" class="section level2">
-<h2>Example 5 - 2-coin algorithm</h2>
-<p><span class="math display">\[
-f(p) = \frac{c_1p_1}{c_1p_1+c_2p_2}, \qquad c_1, c_2 \geq 0
-\]</span> When using the substitution <span class="math inline">\(p_i = \frac{q_1}{q_1+q_{i+1}}, \qquad i \in \{1,2,\ldots,m\}\)</span> (tossing all coins to produce an <span class="math inline">\(m+2\)</span> sided die), one gets <span class="math display">\[
-f_{1}(\boldsymbol{q}) \propto (c_1q_1^2+c_1q_1q_3, c_2q_1^2+c_2q_1q_2)
-\]</span> Instead, when substituing using <span class="math inline">\(p_i = \frac{q_i}{1-\sum_{k=1}^{i-1}q_k}, \qquad i \in \{1,2,\ldots,m\}\)</span> (tossing coins until first heads to produce an <span class="math inline">\(m+1\)</span> sided die), one gets <span class="math display">\[
-f_2(\boldsymbol{q}) \propto (c_1q_1 -c_1q_1^2, c_2q_2)
+<div id="example-5---augmenting-ladder-dice-enterprise" class="section level2">
+<h2>Example 5 - Augmenting ladder (Dice enterprise)</h2>
+<p>We consider a ladder of the following form, where the true (unknown) <span class="math inline">\(\boldsymbol{p}=(p_1,p_2,p_3)\)</span> is <span class="math inline">\((1/3,1/3,1/3)\)</span>: <span class="math display">\[
+\pi(\boldsymbol{p}) \propto \{p_1^ap_2^ap_3^a,p_1^{3a},p_2^{3a},p_3^{3a}\}
 \]</span></p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="kw">rm</span>(<span class="dt">list=</span><span class="kw">ls</span>())
+<span class="kw">require</span>(<span class="st">&quot;DiceEnterprise&quot;</span>)
+<span class="kw">setwd</span>(<span class="st">&quot;~/Dropbox/OxWaSP/Dice Enterprise/R/DiceEnterprise/vignettes&quot;</span>) <span class="co">#Change accordingly</span>
+
+true_p &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="dv">1</span><span class="op">/</span><span class="dv">3</span>,<span class="dv">1</span><span class="op">/</span><span class="dv">3</span>,<span class="dv">1</span><span class="op">/</span><span class="dv">3</span>) <span class="co">#True value of p</span>
+a &lt;-<span class="st"> </span><span class="dv">5</span> <span class="co">#Exponent</span>
+n &lt;-<span class="st"> </span><span class="dv">1000</span> <span class="co">#Size sample CFTP</span>
+num_cores &lt;-<span class="st"> </span><span class="dv">4</span> <span class="co">#Number of cores used</span>
+initial_seed &lt;-<span class="st"> </span><span class="dv">7117</span> <span class="co">#Seed for RNG</span>
+increase_degree &lt;-<span class="st"> </span><span class="dv">78</span> <span class="co">#How much the degree is increased</span>
+de_list &lt;-<span class="st"> </span><span class="kw">vector</span>(<span class="st">&quot;list&quot;</span>, <span class="dt">length =</span> increase_degree<span class="op">+</span><span class="dv">1</span>) <span class="co">#Store all the de objects</span>
+
+<span class="kw">set.seed</span>(initial_seed, <span class="st">&quot;L'Ecuyer-CMRG&quot;</span>) 
+<span class="co">#Construct the ladder</span>
+<span class="kw">cat</span>(<span class="st">&quot;Constructing the dice enterprise </span><span class="ch">\n</span><span class="st">&quot;</span>)
+  de &lt;-<span class="st"> </span>DiceEnterprise<span class="op">$</span><span class="kw">new</span>(<span class="dt">G=</span><span class="kw">list</span>(
+    <span class="kw">list</span>(<span class="dv">1</span>,<span class="kw">matrix</span>(<span class="kw">c</span>(<span class="dv">3</span><span class="op">*</span>a,<span class="dv">0</span>,<span class="dv">0</span>),<span class="dt">nrow=</span><span class="dv">1</span>,<span class="dt">ncol=</span><span class="dv">3</span>)),
+    <span class="kw">list</span>(<span class="dv">1</span>,<span class="kw">matrix</span>(<span class="kw">c</span>(a,a,a),<span class="dt">nrow=</span><span class="dv">1</span>,<span class="dt">ncol=</span><span class="dv">3</span>)),
+    <span class="kw">list</span>(<span class="dv">1</span>,<span class="kw">matrix</span>(<span class="kw">c</span>(<span class="dv">0</span>,<span class="dv">0</span>,<span class="dv">3</span><span class="op">*</span>a),<span class="dt">nrow=</span><span class="dv">1</span>,<span class="dt">ncol=</span><span class="dv">3</span>)),
+    <span class="kw">list</span>(<span class="dv">1</span>,<span class="kw">matrix</span>(<span class="kw">c</span>(<span class="dv">0</span>,<span class="dv">3</span><span class="op">*</span>a,<span class="dv">0</span>),<span class="dt">nrow=</span><span class="dv">1</span>,<span class="dt">ncol=</span><span class="dv">3</span>))
+  ))
+  de_list[[<span class="dv">1</span>]] &lt;-<span class="st"> </span>de
+  <span class="kw">cat</span>(<span class="st">&quot;Constructing the augmented dice enterprises </span><span class="ch">\n</span><span class="st">&quot;</span>)
+  <span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="op">:</span>increase_degree) {
+    <span class="co">#Check if it already exists</span>
+    <span class="cf">if</span>(<span class="kw">file.exists</span>(<span class="kw">paste0</span>(<span class="st">&quot;efficiency_multi_data/ladder_n_&quot;</span>,n,<span class="st">&quot;_a_&quot;</span>,a,<span class="st">&quot;_degree_&quot;</span>,i,<span class="st">&quot;.rds&quot;</span>))) {
+      <span class="kw">cat</span>(<span class="st">&quot;Restoring previous work for degree +&quot;</span>,i,<span class="st">&quot; </span><span class="ch">\n</span><span class="st">&quot;</span>)
+      prev_work &lt;-<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">paste0</span>(<span class="st">&quot;efficiency_multi_data/ladder_n_&quot;</span>,n,<span class="st">&quot;_a_&quot;</span>,a,<span class="st">&quot;_degree_&quot;</span>,i,<span class="st">&quot;.rds&quot;</span>))
+      de_list[[i<span class="op">+</span><span class="dv">1</span>]]  &lt;-<span class="st"> </span>prev_work<span class="op">$</span>de_aug
+    } <span class="cf">else</span> {
+      <span class="kw">cat</span>(<span class="st">&quot;Constructing the augmented dice enterprises for +&quot;</span>,i,<span class="st">&quot; </span><span class="ch">\n</span><span class="st">&quot;</span>)
+      <span class="cf">if</span>(i <span class="op">==</span><span class="st"> </span><span class="dv">1</span>) {
+        de_list[[i<span class="op">+</span><span class="dv">1</span>]] &lt;-<span class="st"> </span>de<span class="op">$</span><span class="kw">increase.degree</span>(<span class="dv">1</span>)
+      } <span class="cf">else</span> {
+        de_list[[i<span class="op">+</span><span class="dv">1</span>]] &lt;-<span class="st"> </span>de_list[[i<span class="op">-</span><span class="dv">1</span>]]<span class="op">$</span><span class="kw">increase.degree</span>(<span class="dv">1</span>)
+      }
+      <span class="co">#Save object</span>
+      <span class="kw">saveRDS</span>(<span class="kw">list</span>(<span class="dt">de_aug=</span>de_list[[i<span class="op">+</span><span class="dv">1</span>]],<span class="dt">i=</span>i), <span class="dt">file =</span> <span class="kw">paste0</span>(<span class="st">&quot;efficiency_multi_data/ladder_n_&quot;</span>,n,<span class="st">&quot;_a_&quot;</span>,a,<span class="st">&quot;_degree_&quot;</span>,i,<span class="st">&quot;.rds&quot;</span>))
+    }
+  }
+  
+
+<span class="co">#For each ladder get empirical number of tosses</span>
+<span class="kw">cat</span>(<span class="st">&quot;Computing empirical number of tosses </span><span class="ch">\n</span><span class="st">&quot;</span>)
+emp_tosses &lt;-<span class="st"> </span><span class="kw">matrix</span>(<span class="ot">NA</span>, <span class="dt">nrow =</span> n, <span class="dt">ncol =</span> increase_degree<span class="op">+</span><span class="dv">1</span>)
+emp_res &lt;-<span class="st"> </span><span class="kw">matrix</span>(<span class="ot">NA</span>, <span class="dt">nrow =</span> n, <span class="dt">ncol =</span> increase_degree<span class="op">+</span><span class="dv">1</span>)
+<span class="kw">colnames</span>(emp_tosses) &lt;-<span class="st"> </span><span class="kw">paste0</span>(<span class="st">&quot;+&quot;</span>,<span class="dv">0</span><span class="op">:</span>increase_degree)
+<span class="kw">colnames</span>(emp_res) &lt;-<span class="st"> </span><span class="kw">paste0</span>(<span class="st">&quot;+&quot;</span>,<span class="dv">0</span><span class="op">:</span>increase_degree)
+<span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">0</span><span class="op">:</span>increase_degree) {
+  <span class="co">#Check if it already exists</span>
+  <span class="cf">if</span>(<span class="kw">file.exists</span>(<span class="kw">paste0</span>(<span class="st">&quot;efficiency_multi_data/n_&quot;</span>,n,<span class="st">&quot;_a_&quot;</span>,a,<span class="st">&quot;_degree_&quot;</span>,i,<span class="st">&quot;.rds&quot;</span>))) {
+    <span class="kw">cat</span>(<span class="st">&quot;Restoring previous work for degree +&quot;</span>,i,<span class="st">&quot; </span><span class="ch">\n</span><span class="st">&quot;</span>)
+    prev_work &lt;-<span class="st"> </span><span class="kw">readRDS</span>(<span class="kw">paste0</span>(<span class="st">&quot;efficiency_multi_data/n_&quot;</span>,n,<span class="st">&quot;_a_&quot;</span>,a,<span class="st">&quot;_degree_&quot;</span>,i,<span class="st">&quot;.rds&quot;</span>))
+    emp_tosses[,i<span class="op">+</span><span class="dv">1</span>] &lt;-<span class="st"> </span>prev_work<span class="op">$</span>emp_tosses
+    emp_res[,i<span class="op">+</span><span class="dv">1</span>] &lt;-<span class="st"> </span>prev_work<span class="op">$</span>emp_res
+  } <span class="cf">else</span> {
+    <span class="kw">cat</span>(<span class="st">&quot;Getting empirical tosses for +&quot;</span>,i,<span class="st">&quot; </span><span class="ch">\n</span><span class="st">&quot;</span>)
+    aux &lt;-<span class="st"> </span>de_list[[i<span class="op">+</span><span class="dv">1</span>]]<span class="op">$</span><span class="kw">sample</span>(<span class="dt">n=</span>n, <span class="dt">true_p =</span> true_p, <span class="dt">num_cores =</span> num_cores, <span class="dt">verbose =</span> <span class="ot">TRUE</span>)
+    emp_tosses[,i<span class="op">+</span><span class="dv">1</span>] &lt;-<span class="st"> </span>aux[[<span class="dv">2</span>]]
+    emp_res[,i<span class="op">+</span><span class="dv">1</span>] &lt;-<span class="st"> </span>aux[[<span class="dv">1</span>]]
+    <span class="co">#Save object</span>
+    <span class="kw">saveRDS</span>(<span class="kw">list</span>(<span class="dt">emp_tosses=</span>aux[[<span class="dv">2</span>]],<span class="dt">emp_res=</span>aux[[<span class="dv">1</span>]]), <span class="dt">file =</span> <span class="kw">paste0</span>(<span class="st">&quot;efficiency_multi_data/n_&quot;</span>,n,<span class="st">&quot;_a_&quot;</span>,a,<span class="st">&quot;_degree_&quot;</span>,i,<span class="st">&quot;.rds&quot;</span>))
+  }
+}
+
+<span class="kw">apply</span>(emp_tosses,<span class="dv">2</span>,mean)</code></pre></div>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r"><span class="co">#Prepare output</span>
+res_output &lt;-<span class="st"> </span><span class="kw">matrix</span>(<span class="ot">NA</span>, <span class="dt">nrow =</span> <span class="dv">1</span>, <span class="dt">ncol =</span> increase_degree<span class="op">+</span><span class="dv">1</span>)
+<span class="kw">colnames</span>(res_output) &lt;-<span class="st"> </span><span class="kw">paste0</span>(<span class="st">&quot;+&quot;</span>,<span class="dv">0</span><span class="op">:</span>increase_degree)
+res_output[<span class="dv">1</span>,] &lt;-<span class="st"> </span><span class="kw">apply</span>(emp_tosses,<span class="dv">2</span>,mean)
+<span class="kw">print</span>(res_output)
+<span class="co">#&gt;            +0       +1       +2      +3      +4       +5       +6       +7</span>
+<span class="co">#&gt; [1,] 174246.4 28518.22 28514.22 8811.63 8807.63 4359.461 4355.461 3033.089</span>
+<span class="co">#&gt;            +8       +9      +10      +11      +12      +13      +14</span>
+<span class="co">#&gt; [1,] 3043.496 2566.722 2569.023 2090.126 2089.208 1814.473 1811.589</span>
+<span class="co">#&gt;           +15      +16    +17      +18      +19      +20      +21      +22</span>
+<span class="co">#&gt; [1,] 1573.085 1580.566 1454.5 1452.779 1341.925 1341.517 1266.911 1267.524</span>
+<span class="co">#&gt;           +23      +24      +25      +26      +27      +28      +29</span>
+<span class="co">#&gt; [1,] 1169.254 1166.061 1093.352 1092.945 1060.294 1061.896 1033.363</span>
+<span class="co">#&gt;           +30      +31      +32     +33     +34     +35     +36     +37</span>
+<span class="co">#&gt; [1,] 1032.945 1006.591 1006.796 971.897 971.344 981.588 978.774 938.971</span>
+<span class="co">#&gt;          +38     +39     +40     +41     +42     +43     +44     +45</span>
+<span class="co">#&gt; [1,] 941.034 915.581 912.539 902.949 901.488 866.863 865.192 882.106</span>
+<span class="co">#&gt;          +46   +47     +48     +49     +50   +51     +52     +53     +54</span>
+<span class="co">#&gt; [1,] 879.884 876.8 876.285 876.051 874.039 876.2 877.426 881.812 881.373</span>
+<span class="co">#&gt;          +55     +56     +57     +58     +59     +60     +61     +62</span>
+<span class="co">#&gt; [1,] 875.644 874.078 862.354 863.762 838.675 841.442 840.226 841.383</span>
+<span class="co">#&gt;          +63     +64     +65     +66     +67    +68     +69     +70</span>
+<span class="co">#&gt; [1,] 816.543 816.122 852.993 853.096 843.629 843.74 860.019 860.096</span>
+<span class="co">#&gt;          +71     +72     +73     +74     +75     +76     +77     +78</span>
+<span class="co">#&gt; [1,] 845.238 843.975 850.235 848.677 842.597 843.023 858.113 857.019</span></code></pre></div>
 </div>
 
 
